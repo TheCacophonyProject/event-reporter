@@ -1,0 +1,12 @@
+[Unit]
+Description=Cacophony Project Event Reporter
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/event-reporter
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

@@ -34,3 +34,18 @@ dbus-send --system --type=method_call --print-reply \
     string:'{"description": {"type": "audioBait", "filename": "foo.mp3"}}' \
     int64:1527629858095250710
 ```
+
+## Releases
+
+This software uses the [GoReleaser](https://goreleaser.com) tool to
+automate releases. To produce a release:
+
+* Ensure that the `GITHUB_TOKEN` environment variable is set with a
+  Github personal access token which allows access to the Cacophony
+  Project repositories.
+* Tag the release with an annotated tag. For example:
+  `git tag -a "v1.4" -m "1.4 release"`
+* Push the tag to Github: `git push --tags origin`
+* Run `goreleaser --rm-dist`
+
+The configuration for GoReleaser can be found in `.goreleaser.yml`.

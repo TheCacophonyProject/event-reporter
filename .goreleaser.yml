@@ -1,0 +1,36 @@
+project_name: event-reporter
+dist: dist
+
+release:
+  github:
+    owner: TheCacophonyProject
+    name: event-reporter
+  name_template: '{{.Tag}}'
+
+builds:
+- binary: event-reporter
+  main: .
+  goos:
+    - linux
+  goarch:
+    - arm
+  goarm:
+    - "7"
+  ldflags: -s -w -X main.version={{.Version}}
+
+nfpm:
+  vendor: The Cacophony Project
+  homepage: http://cacophony.org.nz/
+  maintainer: Menno Finlay-Smits <menno@cacophony.org.nz>
+  description: Queue and report events to the Cacophony Project API
+  license: GPL v3.0
+  name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
+  formats:
+    - deb
+  bindir: /usr/bin
+  files:
+    "_release/event-reporter.service": "/etc/systemd/system/event-reporter.service"
+    "_release/org.cacophony.Events.conf": "/etc/dbus-1/system.d/org.cacophony.Events.conf"
+
+checksum:
+  name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'
