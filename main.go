@@ -23,8 +23,7 @@ import (
 	"time"
 
 	arg "github.com/alexflint/go-arg"
-
-	"github.com/TheCacophonyProject/event-reporter/api"
+	"github.com/TheCacophonyProject/go-api"
 	"github.com/TheCacophonyProject/event-reporter/eventstore"
 )
 
