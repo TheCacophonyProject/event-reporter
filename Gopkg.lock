@@ -3,101 +3,73 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f0e647649fcb07ca09a59f7b945ab0c7000c46770e7fb2d0600329c2c859b845"
   name = "github.com/TheCacophonyProject/go-api"
   packages = ["."]
-  pruneopts = ""
-  revision = "58d21fc446960e587b02029763a5c776e43edbee"
+  revision = "1ccbd4981ef19335573e6a48c3d69d31fb5514c5"
 
 [[projects]]
   branch = "master"
-  digest = "1:c3041f49cae4ad48d7a5ad28a19b57a60e26284cff0af4d4bba3b7ec116e79da"
   name = "github.com/alexflint/go-arg"
   packages = ["."]
-  pruneopts = ""
-  revision = "f7c0423bd11ee80ab81d25c6d46f492998af8547"
+  revision = "57836b82be062adc498c947cc923538cf7698b77"
 
 [[projects]]
-  branch = "master"
-  digest = "1:d685b3da1fa270912d06e97f577632540a52fcf26048a3a46215c3ce5218e56f"
   name = "github.com/alexflint/go-scalar"
   packages = ["."]
-  pruneopts = ""
-  revision = "e80c3b7ed292b052c7083b6fd7154a8422c33f65"
+  revision = "6638fbbc28f9ad0136ef5fd84a15c995e08e161f"
+  version = "v1.0.0"
 
 [[projects]]
-  digest = "1:ed112122ed4a920d944cc99b9d00b0441c11685939c28462c719488d36fe29aa"
   name = "github.com/boltdb/bolt"
   packages = ["."]
-  pruneopts = ""
   revision = "2f1ce7a837dcb8da3ec595b1dac9d0632f0f99e8"
   version = "v1.3.1"
 
 [[projects]]
-  digest = "1:56c130d885a4aacae1dd9c7b71cfe39912c7ebc1ff7d2b46083c8812996dc43b"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
-  pruneopts = ""
-  revision = "346938d642f2ec3594ed81d874461961cd0faa76"
-  version = "v1.1.0"
+  revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
+  version = "v1.1.1"
 
 [[projects]]
-  digest = "1:e772845668c277db6fcc8c6fcf31664c74851f6cce4d225be4f4adbee3861057"
   name = "github.com/godbus/dbus"
-  packages = [
-    ".",
-    "introspect",
-  ]
-  pruneopts = ""
-  revision = "a389bdde4dd695d414e47b755e95e72b7826432c"
-  version = "v4.1.0"
+  packages = [".","introspect"]
+  revision = "2ff6f7ffd60f0f2410b3105864bdd12c7894f844"
+  version = "v5.0.1"
 
 [[projects]]
-  digest = "1:256484dbbcd271f9ecebc6795b2df8cad4c458dd0f5fd82a8c2fa0c29f233411"
+  name = "github.com/gofrs/flock"
+  packages = ["."]
+  revision = "392e7fae8f1b0bdbd67dad7237d23f618feb6dbb"
+  version = "v0.7.1"
+
+[[projects]]
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
-  pruneopts = ""
   revision = "792786c7400a136282c1664665ae0a8db921c6c2"
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:a30066593578732a356dc7e5d7f78d69184ca65aeeff5939241a3ab10559bb06"
   name = "github.com/stretchr/testify"
-  packages = [
-    "assert",
-    "require",
-    "suite",
-  ]
-  pruneopts = ""
-  revision = "12b6f73e6084dad08a7c6e575284b177ecafbc71"
-  version = "v1.2.1"
+  packages = ["assert","require","suite"]
+  revision = "ffdc059bfe9ce6a4e144ba849dbedead332c6053"
+  version = "v1.3.0"
 
 [[projects]]
   branch = "master"
-  digest = "1:af6136a9636e36e4114a25f59d4fe5b09cc8fa1b3e5014c6223a3f19a85d08f1"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  pruneopts = ""
-  revision = "7c87d13f8e835d2fb3a70a2912c811ed0c1d241b"
+  revision = "6c81ef8f67ca3f42fc9cd71dfbd5f35b0c4b5771"
 
 [[projects]]
-  digest = "1:cedccf16b71e86db87a24f8d4c70b0a855872eb967cb906a66b95de56aefbd0d"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  pruneopts = ""
   revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
   version = "v2.2.2"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  input-imports = [
-    "github.com/TheCacophonyProject/go-api",
-    "github.com/alexflint/go-arg",
-    "github.com/boltdb/bolt",
-    "github.com/godbus/dbus",
-    "github.com/godbus/dbus/introspect",
-    "github.com/stretchr/testify/suite",
-  ]
+  inputs-digest = "b6870f440213941eb749bfe38667a24034fc8e1dc6941027723b09ca01e79972"
   solver-name = "gps-cdcl"
   solver-version = 1
