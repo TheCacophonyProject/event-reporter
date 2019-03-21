@@ -22,9 +22,9 @@ import (
 	"log"
 	"time"
 
+	"github.com/TheCacophonyProject/event-reporter/eventstore"
 	arg "github.com/alexflint/go-arg"
 
-	"github.com/TheCacophonyProject/event-reporter/eventstore"
 	"github.com/TheCacophonyProject/go-api"
 )
 
