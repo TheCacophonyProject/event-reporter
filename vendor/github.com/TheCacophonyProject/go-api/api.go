@@ -25,64 +25,101 @@ import (
 	"mime/multipart"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"strconv"
 	"time"
 )
 
+const (
+	httpTimeout = 60 * time.Second
+	timeout     = 30 * time.Second
+	apiBasePath = "/api/v1"
+	regURL      = "/devices"
+	authURL     = "/authenticate_device"
+)
+
+type CacophonyDevice struct {
+	group    string
+	name     string
+	password string
+}
+
 type CacophonyAPI struct {
+	device         *CacophonyDevice
+	httpClient     *http.Client
 	serverURL      string
-	group          string
-	name           string
-	typeName       string
-	regURL         string
-	authURL        string
-	password       string
 	token          string
 	justRegistered bool
-	client         *http.Client
+}
+
+// joinURL creates an absolute url with supplied baseURL, and all paths
+func joinURL(baseURL string, paths ...string) string {
+
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return ""
+	}
+	url := path.Join(paths...)
+	u.Path = path.Join(u.Path, url)
+	return u.String()
+}
+
+func (api *CacophonyAPI) getAPIURL() string {
+	return joinURL(api.serverURL, apiBasePath)
+}
+
+func (api *CacophonyAPI) getAuthURL() string {
+	return joinURL(api.serverURL, authURL)
+}
+func (api *CacophonyAPI) getRegURL() string {
+	return joinURL(api.serverURL, apiBasePath, regURL)
 }
 
 func (api *CacophonyAPI) Password() string {
-	return api.password
+	return api.device.password
 }
 
 func (api *CacophonyAPI) JustRegistered() bool {
 	return api.justRegistered
 }
 
-const httpTimeout = 60 * time.Second
-const timeout = 30 * time.Second
-const deviceName = "devicename"
-const basePath = "/api/v1"
-
-// NewAPI creates a CacophonyAPI instance and obtains a fresh JSON Web
-// Token. If no password is given then the device is registered.
-func NewAPI(serverURL, group, deviceName, password string) (*CacophonyAPI, error) {
-	api := &CacophonyAPI{
-		serverURL: serverURL,
-		group:     group,
-		password:  password,
-		client:    newHTTPClient(),
+// NewAPIFromConfig prases the supplied configFile and creates a new CacophonyAPI with the configFile information
+// and saves the generated password to privConfigFileName(configFile)
+func NewAPIFromConfig(configFile string) (*CacophonyAPI, error) {
+	conf, err := ParseConfigFile(configFile)
+	if err != nil {
+		return nil, fmt.Errorf("configuration error: %v", err)
 	}
+	privConfigFilename := privConfigFilename(configFile)
+	confPassword := NewConfigPassword(privConfigFilename)
 
-	if deviceName == "" {
-		return nil, errors.New("no device name")
+	password, err := confPassword.ReadPassword()
+	if err != nil {
+		return nil, err
 	}
-
-	api.name = deviceName
-	api.typeName = deviceName
-	api.regURL = api.serverURL + basePath + "/devices"
-	api.authURL = api.serverURL + "/authenticate_device"
 
 	if password == "" {
-		err := api.register()
+		locked, err := confPassword.GetExLock()
+		if locked == false || err != nil {
+			return nil, err
+		}
+		defer confPassword.Unlock()
+
+		//read again incase was just written to while waiting for exlock
+		password, err = confPassword.ReadPassword()
 		if err != nil {
 			return nil, err
 		}
-		api.justRegistered = true
-	} else {
-		err := api.newToken()
+	}
+	api, err := NewAPI(conf.ServerURL, conf.Group, conf.DeviceName, password)
+	if err != nil {
+		return nil, err
+	}
+
+	if api.JustRegistered() {
+		err := confPassword.WritePassword(api.Password())
 		if err != nil {
 			return nil, err
 		}
@@ -90,19 +127,55 @@ func NewAPI(serverURL, group, deviceName, password string) (*CacophonyAPI, error
 	return api, nil
 }
 
-func (api *CacophonyAPI) newToken() error {
-	if api.password == "" {
+// createAPI creates a CacophonyAPI instance and obtains a fresh JSON Web
+// Token. If no password is given then the device is registered.
+func NewAPI(serverURL, group, deviceName, password string) (*CacophonyAPI, error) {
+
+	if deviceName == "" {
+		return nil, errors.New("no device name")
+	}
+
+	device := &CacophonyDevice{
+		group:    group,
+		name:     deviceName,
+		password: password,
+	}
+
+	api := &CacophonyAPI{
+		serverURL:  serverURL,
+		device:     device,
+		httpClient: newHTTPClient(),
+	}
+
+	if device.password == "" {
+		err := api.register()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err := api.authenticate()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return api, nil
+}
+
+// authenticate a device with Cacophony API and retrieves the token
+func (api *CacophonyAPI) authenticate() error {
+
+	if api.device.password == "" {
 		return errors.New("no password set")
 	}
 	payload, err := json.Marshal(map[string]string{
-		api.typeName: api.name,
-		"password":   api.password,
+		"devicename": api.device.name,
+		"password":   api.device.password,
 	})
 	if err != nil {
 		return err
 	}
-	postResp, err := api.client.Post(
-		api.authURL,
+	postResp, err := api.httpClient.Post(
+		api.getAuthURL(),
 		"application/json",
 		bytes.NewReader(payload),
 	)
@@ -111,18 +184,20 @@ func (api *CacophonyAPI) newToken() error {
 	}
 	defer postResp.Body.Close()
 
+	if err := handleHTTPResponse(postResp); err != nil {
+		return err
+	}
+
 	var resp tokenResponse
 	d := json.NewDecoder(postResp.Body)
 	if err := d.Decode(&resp); err != nil {
 		return fmt.Errorf("decode: %v", err)
 	}
-	if !resp.Success {
-		return fmt.Errorf("failed getting new token: %v", resp.message())
-	}
 	api.token = resp.Token
 	return nil
 }
 
+// newHTTPClient initializes and returns a http.Client with default settings
 func newHTTPClient() *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
@@ -142,22 +217,24 @@ func newHTTPClient() *http.Client {
 	}
 }
 
+// register a device with Cacophony API and retrieves it's token
 func (api *CacophonyAPI) register() error {
-	if api.password != "" {
+	if api.device.password != "" {
 		return errors.New("already registered")
 	}
 
 	password := randString(20)
 	payload, err := json.Marshal(map[string]string{
-		"group":      api.group,
-		api.typeName: api.name,
+		"group":      api.device.group,
+		"devicename": api.device.name,
 		"password":   password,
 	})
 	if err != nil {
 		return err
 	}
-	postResp, err := api.client.Post(
-		api.regURL,
+
+	postResp, err := api.httpClient.Post(
+		api.getRegURL(),
 		"application/json",
 		bytes.NewReader(payload),
 	)
@@ -166,20 +243,25 @@ func (api *CacophonyAPI) register() error {
 	}
 	defer postResp.Body.Close()
 
+	if err := handleHTTPResponse(postResp); err != nil {
+		return err
+	}
+
 	var respData tokenResponse
 	d := json.NewDecoder(postResp.Body)
 	if err := d.Decode(&respData); err != nil {
 		return fmt.Errorf("decode: %v", err)
 	}
-	if !respData.Success {
-		return fmt.Errorf("registration failed: %v", respData.message())
-	}
 
-	api.password = password
+	api.device.password = password
 	api.token = respData.Token
+	api.justRegistered = true
+
 	return nil
 }
 
+// UploadThermalRaw uploads the file to Cacophony API as a multipartmessage
+// with data of type thermalRaw specified
 func (api *CacophonyAPI) UploadThermalRaw(r io.Reader) error {
 	buf := new(bytes.Buffer)
 	w := multipart.NewWriter(buf)
@@ -203,14 +285,14 @@ func (api *CacophonyAPI) UploadThermalRaw(r io.Reader) error {
 	io.Copy(fw, r)
 	w.Close()
 
-	req, err := http.NewRequest("POST", api.serverURL+basePath+"/recordings", buf)
+	req, err := http.NewRequest("POST", joinURL(api.serverURL, apiBasePath, "/recordings"), buf)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", w.FormDataContentType())
 	req.Header.Set("Authorization", api.token)
 
-	resp, err := api.client.Do(req)
+	resp, err := api.httpClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -224,11 +306,12 @@ func (api *CacophonyAPI) UploadThermalRaw(r io.Reader) error {
 }
 
 type tokenResponse struct {
-	Success  bool
 	Messages []string
 	Token    string
 }
 
+// message gets the first message of the supplised tokenResponse if present
+// otherwise default of "unknown"
 func (r *tokenResponse) message() string {
 	if len(r.Messages) > 0 {
 		return r.Messages[0]
@@ -236,9 +319,9 @@ func (r *tokenResponse) message() string {
 	return "unknown"
 }
 
+// getFileFromJWT downloads a file from the Cacophony API using supplied JWT
+// and saves it to the supplied path
 func (api *CacophonyAPI) getFileFromJWT(jwt, path string) error {
-	// Create the file
-
 	out, err := os.Create(path)
 	if err != nil {
 		return err
@@ -246,7 +329,7 @@ func (api *CacophonyAPI) getFileFromJWT(jwt, path string) error {
 	defer out.Close()
 
 	// Get the data
-	resp, err := http.Get(api.serverURL + basePath + "/signedUrl?jwt=" + jwt)
+	resp, err := http.Get(joinURL(api.serverURL, apiBasePath, "/signedUrl?jwt="+jwt))
 	if err != nil {
 		return err
 	}
@@ -281,16 +364,15 @@ type FileDetails struct {
 	OriginalName string
 }
 
-// GetFileDetails will download the file details from the files api.  This can then be parsed into
-// DownloadFile to download the file
+// GetFileDetails of the supplied fileID from the Cacophony API and return FileResponse info.
+// This can then be parsed into DownloadFile to download the file
 func (api *CacophonyAPI) GetFileDetails(fileID int) (*FileResponse, error) {
 	buf := new(bytes.Buffer)
 
-	req, err := http.NewRequest("GET", api.serverURL+basePath+"/files/"+strconv.Itoa(fileID), buf)
+	req, err := http.NewRequest("GET", joinURL(api.serverURL, apiBasePath, "/files/"+strconv.Itoa(fileID)), buf)
 	req.Header.Set("Authorization", api.token)
-	client := new(http.Client)
 
-	resp, err := client.Do(req)
+	resp, err := api.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -304,7 +386,7 @@ func (api *CacophonyAPI) GetFileDetails(fileID int) (*FileResponse, error) {
 	return &fr, nil
 }
 
-// DownloadFile will take the file details from GetFileDetails and download the file to a specified path
+// DownloadFile specified by fileResponse and save it to filePath
 func (api *CacophonyAPI) DownloadFile(fileResponse *FileResponse, filePath string) error {
 	if _, err := os.Stat(filePath); err == nil {
 		return err
@@ -313,6 +395,7 @@ func (api *CacophonyAPI) DownloadFile(fileResponse *FileResponse, filePath strin
 	return api.getFileFromJWT(fileResponse.Jwt, filePath)
 }
 
+// ReportEvent described by jsonDetails and timestamps to the Cacophony API
 func (api *CacophonyAPI) ReportEvent(jsonDetails []byte, times []time.Time) error {
 	// Deserialise the JSON event details into a map.
 	var details map[string]interface{}
@@ -335,16 +418,14 @@ func (api *CacophonyAPI) ReportEvent(jsonDetails []byte, times []time.Time) erro
 	}
 
 	// Prepare request.
-	req, err := http.NewRequest("POST", api.serverURL+basePath+"/events", bytes.NewReader(jsonAll))
+	req, err := http.NewRequest("POST", joinURL(api.serverURL, apiBasePath, "/events"), bytes.NewReader(jsonAll))
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", api.token)
 
-	// Send.
-	client := &http.Client{Timeout: httpTimeout}
-	resp, err := client.Do(req)
+	resp, err := api.httpClient.Do(req)
 	if err != nil {
 		return temporaryError(err)
 	}
@@ -357,6 +438,8 @@ func (api *CacophonyAPI) ReportEvent(jsonDetails []byte, times []time.Time) erro
 	return nil
 }
 
+// handleHTTPResponse checks StatusCode of a response for success and returns an http error
+// described in error.go
 func handleHTTPResponse(resp *http.Response) error {
 	if !(isHTTPSuccess(resp.StatusCode)) {
 		body, err := ioutil.ReadAll(resp.Body)
@@ -371,6 +454,7 @@ func handleHTTPResponse(resp *http.Response) error {
 	return nil
 }
 
+//formatTimestamp to time.RFC3339 format
 func formatTimestamp(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
 }
@@ -385,11 +469,11 @@ func isHTTPClientError(code int) bool {
 
 // GetSchedule will get the audio schedule
 func (api *CacophonyAPI) GetSchedule() ([]byte, error) {
-	req, err := http.NewRequest("GET", api.serverURL+basePath+"schedules", nil)
+	req, err := http.NewRequest("GET", joinURL(api.serverURL, apiBasePath, "schedules"), nil)
 	req.Header.Set("Authorization", api.token)
-	client := new(http.Client)
+	//client := new(http.Client)
 
-	resp, err := client.Do(req)
+	resp, err := api.httpClient.Do(req)
 	if err != nil {
 		return []byte{}, err
 	}
