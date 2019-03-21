@@ -3,15 +3,21 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/alexflint/go-arg"
+  name = "github.com/TheCacophonyProject/go-api"
   packages = ["."]
-  revision = "f7c0423bd11ee80ab81d25c6d46f492998af8547"
+  revision = "1ccbd4981ef19335573e6a48c3d69d31fb5514c5"
 
 [[projects]]
   branch = "master"
+  name = "github.com/alexflint/go-arg"
+  packages = ["."]
+  revision = "57836b82be062adc498c947cc923538cf7698b77"
+
+[[projects]]
   name = "github.com/alexflint/go-scalar"
   packages = ["."]
-  revision = "e80c3b7ed292b052c7083b6fd7154a8422c33f65"
+  revision = "6638fbbc28f9ad0136ef5fd84a15c995e08e161f"
+  version = "v1.0.0"
 
 [[projects]]
   name = "github.com/boltdb/bolt"
@@ -22,17 +28,20 @@
 [[projects]]
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
-  revision = "346938d642f2ec3594ed81d874461961cd0faa76"
-  version = "v1.1.0"
+  revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
+  version = "v1.1.1"
 
 [[projects]]
   name = "github.com/godbus/dbus"
-  packages = [
-    ".",
-    "introspect"
-  ]
-  revision = "a389bdde4dd695d414e47b755e95e72b7826432c"
-  version = "v4.1.0"
+  packages = [".","introspect"]
+  revision = "2ff6f7ffd60f0f2410b3105864bdd12c7894f844"
+  version = "v5.0.1"
+
+[[projects]]
+  name = "github.com/gofrs/flock"
+  packages = ["."]
+  revision = "392e7fae8f1b0bdbd67dad7237d23f618feb6dbb"
+  version = "v0.7.1"
 
 [[projects]]
   name = "github.com/pmezard/go-difflib"
@@ -42,29 +51,25 @@
 
 [[projects]]
   name = "github.com/stretchr/testify"
-  packages = [
-    "assert",
-    "require",
-    "suite"
-  ]
-  revision = "12b6f73e6084dad08a7c6e575284b177ecafbc71"
-  version = "v1.2.1"
+  packages = ["assert","require","suite"]
+  revision = "ffdc059bfe9ce6a4e144ba849dbedead332c6053"
+  version = "v1.3.0"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "7c87d13f8e835d2fb3a70a2912c811ed0c1d241b"
+  revision = "6c81ef8f67ca3f42fc9cd71dfbd5f35b0c4b5771"
 
 [[projects]]
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
-  version = "v2.2.1"
+  revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
+  version = "v2.2.2"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "3a8eb31251a683e7d50c1bf247f7e8adf0733d6ae31ac9292f58613e87ff777a"
+  inputs-digest = "b6870f440213941eb749bfe38667a24034fc8e1dc6941027723b09ca01e79972"
   solver-name = "gps-cdcl"
   solver-version = 1

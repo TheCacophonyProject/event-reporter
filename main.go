@@ -22,10 +22,10 @@ import (
 	"log"
 	"time"
 
+	"github.com/TheCacophonyProject/event-reporter/eventstore"
 	arg "github.com/alexflint/go-arg"
 
-	"github.com/TheCacophonyProject/event-reporter/api"
-	"github.com/TheCacophonyProject/event-reporter/eventstore"
+	"github.com/TheCacophonyProject/go-api"
 )
 
 var version = "No version provided"
@@ -69,7 +69,7 @@ func runMain() error {
 	}
 	defer store.Close()
 
-	apiClient, err := api.Open(args.ConfigFile)
+	apiClient, err := api.NewAPIFromConfig(args.ConfigFile)
 	if err != nil {
 		return err
 	}
