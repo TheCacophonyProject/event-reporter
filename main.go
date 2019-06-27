@@ -22,18 +22,17 @@ import (
 	"log"
 	"time"
 
-	"github.com/TheCacophonyProject/event-reporter/eventstore"
 	arg "github.com/alexflint/go-arg"
 
+	"github.com/TheCacophonyProject/event-reporter/eventstore"
 	"github.com/TheCacophonyProject/go-api"
 )
 
 var version = "No version provided"
 
 type argSpec struct {
-	ConfigFile string        `arg:"-c,--config" help:"path to thermal-uploader configuration file"`
-	DBPath     string        `arg:"-d,--db" help:"path to state database"`
-	Interval   time.Duration `arg:"--interval" help:"time between event reports"`
+	DBPath   string        `arg:"-d,--db" help:"path to state database"`
+	Interval time.Duration `arg:"--interval" help:"time between event reports"`
 }
 
 func (argSpec) Version() string {
@@ -43,9 +42,8 @@ func (argSpec) Version() string {
 func procArgs() argSpec {
 	// Set argument default values.
 	args := argSpec{
-		ConfigFile: "/etc/thermal-uploader.yaml",
-		DBPath:     "/var/run/event-reporter.db",
-		Interval:   30 * time.Minute,
+		DBPath:   "/var/run/event-reporter.db",
+		Interval: 30 * time.Minute,
 	}
 	arg.MustParse(&args)
 	return args
@@ -69,7 +67,7 @@ func runMain() error {
 	}
 	defer store.Close()
 
-	apiClient, err := api.NewAPIFromConfig(args.ConfigFile)
+	apiClient, err := api.NewAPI()
 	if err != nil {
 		return err
 	}
