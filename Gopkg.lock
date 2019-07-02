@@ -3,11 +3,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a10b52a8de7bc2acc45d474b0cc28484be69d2e37470bf76bb20baec08357b63"
+  digest = "1:50524f803ebc8e8bc85d4f448918f4a7e6d57faa43160508adacfbc174144506"
   name = "github.com/TheCacophonyProject/go-api"
   packages = ["."]
   pruneopts = ""
-  revision = "1ccbd4981ef19335573e6a48c3d69d31fb5514c5"
+  revision = "f75d610181035080b5552703221d44effc22d2ce"
 
 [[projects]]
   branch = "master"
@@ -77,6 +77,17 @@
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:956f655c87b7255c6b1ae6c203ebb0af98cf2a13ef2507e34c9bf1c0332ac0f5"
+  name = "github.com/spf13/afero"
+  packages = [
+    ".",
+    "mem",
+  ]
+  pruneopts = ""
+  revision = "588a75ec4f32903aa5e39a2619ba6a4631e28424"
+  version = "v1.2.2"
+
+[[projects]]
   digest = "1:381bcbeb112a51493d9d998bbba207a529c73dbb49b3fd789e48c63fac1f192c"
   name = "github.com/stretchr/testify"
   packages = [
@@ -95,6 +106,21 @@
   packages = ["unix"]
   pruneopts = ""
   revision = "6c81ef8f67ca3f42fc9cd71dfbd5f35b0c4b5771"
+
+[[projects]]
+  digest = "1:740b51a55815493a8d0f2b1e0d0ae48fe48953bf7eaf3fcc4198823bf67768c0"
+  name = "golang.org/x/text"
+  packages = [
+    "internal/gen",
+    "internal/triegen",
+    "internal/ucd",
+    "transform",
+    "unicode/cldr",
+    "unicode/norm",
+  ]
+  pruneopts = ""
+  revision = "342b2e1fbaa52c93f31447ad2c6abc048c63e475"
+  version = "v0.3.2"
 
 [[projects]]
   digest = "1:cedccf16b71e86db87a24f8d4c70b0a855872eb967cb906a66b95de56aefbd0d"
