@@ -75,9 +75,11 @@ func runMain() error {
 	defer store.Close()
 
 	cr := connrequester.NewConnectionRequester()
+	log.Println("requesting internet connection")
 	cr.Start()
 	defer cr.Stop()
 	cr.WaitUntilUpLoop(connTimeout, connRetryInterval, -1)
+	log.Println("internet connection made")
 	apiClient, err := api.NewAPI()
 	if err != nil {
 		return err
