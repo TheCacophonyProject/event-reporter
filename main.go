@@ -22,10 +22,17 @@ import (
 	"log"
 	"time"
 
+	"github.com/TheCacophonyProject/event-reporter/eventstore"
+	"github.com/TheCacophonyProject/modemd/connrequester"
 	arg "github.com/alexflint/go-arg"
 
-	"github.com/TheCacophonyProject/event-reporter/eventstore"
 	"github.com/TheCacophonyProject/go-api"
+)
+
+const (
+	connTimeout       = time.Minute * 2
+	connRetryInterval = time.Minute * 10
+	connMaxRetries    = 3
 )
 
 var version = "No version provided"
@@ -67,6 +74,12 @@ func runMain() error {
 	}
 	defer store.Close()
 
+	cr := connrequester.NewConnectionRequester()
+	log.Println("requesting internet connection")
+	cr.Start()
+	defer cr.Stop()
+	cr.WaitUntilUpLoop(connTimeout, connRetryInterval, -1)
+	log.Println("internet connection made")
 	apiClient, err := api.NewAPI()
 	if err != nil {
 		return err
@@ -83,7 +96,7 @@ func runMain() error {
 			return err
 		}
 		log.Printf("%d events to send", len(events))
-		sendEvents(apiClient, store, events)
+		sendEvents(apiClient, store, events, cr)
 		time.Sleep(args.Interval)
 	}
 }
@@ -92,9 +105,17 @@ func sendEvents(
 	apiClient *api.CacophonyAPI,
 	store *eventstore.EventStore,
 	events []eventstore.EventTimes,
+	cr *connrequester.ConnectionRequester,
 ) {
 	var tempErrs []error
 	var permErrs []error
+	cr.Start()
+	defer cr.Stop()
+	if err := cr.WaitUntilUpLoop(connTimeout, connRetryInterval, connMaxRetries); err != nil {
+		log.Println("unable to get an internet connection. Not reporting events")
+		return
+	}
+
 	for _, event := range events {
 		err := apiClient.ReportEvent(event.Details, event.Timestamps)
 		if err != nil {
