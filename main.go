@@ -20,6 +20,7 @@ package main
 
 import (
 	"log"
+	"os"
 	"time"
 
 	"github.com/TheCacophonyProject/event-reporter/eventstore"
@@ -80,8 +81,11 @@ func runMain() error {
 	defer cr.Stop()
 	cr.WaitUntilUpLoop(connTimeout, connRetryInterval, -1)
 	log.Println("internet connection made")
-	apiClient, err := api.NewAPI()
-	if err != nil {
+	apiClient, err := api.New()
+	if api.IsNotRegisteredError(err) {
+		log.Println("device not registered. Exiting and waiting to be restarted")
+		os.Exit(0)
+	} else if err != nil {
 		return err
 	}
 
