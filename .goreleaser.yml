@@ -18,10 +18,10 @@ builds:
     - "7"
   ldflags: -s -w -X main.version={{.Version}}
 
-nfpm:
-  vendor: The Cacophony Project
+nfpms:
+- vendor: The Cacophony Project
   homepage: http://cacophony.org.nz/
-  maintainer: Menno Finlay-Smits <menno@cacophony.org.nz>
+  maintainer: Cacophony Developers <coredev@cacophony.org.nz>
   description: Queue and report events to the Cacophony Project API
   license: GPL v3.0
   name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
