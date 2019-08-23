@@ -49,3 +49,4 @@ automate releases. To produce a release:
 * Run `goreleaser --rm-dist`
 
 The configuration for GoReleaser can be found in `.goreleaser.yml`.
+
