@@ -20,7 +20,6 @@ package main
 
 import (
 	"log"
-	"os"
 	"time"
 
 	"github.com/TheCacophonyProject/event-reporter/eventstore"
@@ -76,18 +75,6 @@ func runMain() error {
 	defer store.Close()
 
 	cr := connrequester.NewConnectionRequester()
-	log.Println("requesting internet connection")
-	cr.Start()
-	defer cr.Stop()
-	cr.WaitUntilUpLoop(connTimeout, connRetryInterval, -1)
-	log.Println("internet connection made")
-	apiClient, err := api.New()
-	if api.IsNotRegisteredError(err) {
-		log.Println("device not registered. Exiting and waiting to be restarted")
-		os.Exit(0)
-	} else if err != nil {
-		return err
-	}
 
 	err = StartService(store)
 	if err != nil {
@@ -99,20 +86,22 @@ func runMain() error {
 		if err != nil {
 			return err
 		}
-		log.Printf("%d events to send", len(events))
-		sendEvents(apiClient, store, events, cr)
+
+		sendCount := len(events)
+		if sendCount > 0 {
+			log.Printf("%d event%s to send", sendCount, plural(sendCount))
+			sendEvents(store, events, cr)
+		}
+
 		time.Sleep(args.Interval)
 	}
 }
 
 func sendEvents(
-	apiClient *api.CacophonyAPI,
 	store *eventstore.EventStore,
 	events []eventstore.EventTimes,
 	cr *connrequester.ConnectionRequester,
 ) {
-	var tempErrs []error
-	var permErrs []error
 	cr.Start()
 	defer cr.Stop()
 	if err := cr.WaitUntilUpLoop(connTimeout, connRetryInterval, connMaxRetries); err != nil {
@@ -120,6 +109,15 @@ func sendEvents(
 		return
 	}
 
+	apiClient, err := api.New()
+	if err != nil {
+		log.Printf("API connection failed: %v", err)
+		return
+	}
+
+	var tempErrs []error
+	var permErrs []error
+	success := 0
 	for _, event := range events {
 		err := apiClient.ReportEvent(event.Details, event.Timestamps)
 		if err != nil {
@@ -131,10 +129,14 @@ func sendEvents(
 			}
 		} else {
 			store.Discard(event)
+			success++
 		}
 	}
 	logLastErrors("temporary", tempErrs)
 	logLastErrors("permanent", permErrs)
+	if success > 0 {
+		log.Printf("%d event%s sent", success, plural(success))
+	}
 }
 
 func logLastErrors(label string, errs []error) {
