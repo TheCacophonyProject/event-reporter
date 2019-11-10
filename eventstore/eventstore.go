@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/boltdb/bolt"
@@ -61,6 +62,7 @@ func Open(fileName string) (*EventStore, error) {
 // uniquely identify the event, but the contents are opaque to the
 // event store.
 func (s *EventStore) Queue(details []byte, timestamp time.Time) error {
+	log.Printf("adding new event: '%s'", string(details))
 	return s.db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(bucketName)
 		rec := bucket.Get(details)
