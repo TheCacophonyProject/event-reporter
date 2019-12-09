@@ -40,9 +40,13 @@ func (suite *Suite) SetupTest() {
 	suite.Require().NoError(err)
 	suite.tempDir = tempDir
 
-	store, err := Open(filepath.Join(tempDir, "store.db"))
+	suite.store = suite.openStore()
+}
+
+func (suite *Suite) openStore() *EventStore {
+	store, err := Open(filepath.Join(suite.tempDir, "store.db"))
 	suite.Require().NoError(err)
-	suite.store = store
+	return store
 }
 
 func (suite *Suite) TearDownTest() {
@@ -63,6 +67,20 @@ func (suite *Suite) TestBasics() {
 	suite.NoError(err)
 
 	events, err := suite.store.All()
+	suite.NoError(err)
+	suite.Len(events, 1)
+	suite.Equal(events[0], newEventTimes(details, now))
+}
+
+func (suite *Suite) TestPersists() {
+	now := Now()
+	details := []byte("foo")
+	err := suite.store.Queue(details, now)
+	suite.NoError(err)
+	suite.store.Close()
+
+	store2 := suite.openStore()
+	events, err := store2.All()
 	suite.NoError(err)
 	suite.Len(events, 1)
 	suite.Equal(events[0], newEventTimes(details, now))

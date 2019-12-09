@@ -49,7 +49,7 @@ func (argSpec) Version() string {
 func procArgs() argSpec {
 	// Set argument default values.
 	args := argSpec{
-		DBPath:   "/var/run/event-reporter.db",
+		DBPath:   "/var/lib/event-reporter.db",
 		Interval: 30 * time.Minute,
 	}
 	arg.MustParse(&args)
