@@ -8,8 +8,9 @@ release:
   name_template: '{{.Tag}}'
 
 builds:
-- binary: event-reporter
-  main: .
+- id: event-reporter
+  binary: event-reporter
+  main: ./cmd/event-reporter
   goos:
     - linux
   goarch:
