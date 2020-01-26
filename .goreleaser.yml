@@ -19,6 +19,17 @@ builds:
     - "7"
   ldflags: -s -w -X main.version={{.Version}}
 
+- id: service-watcher
+  binary: service-watcher
+  main: ./cmd/service-watcher
+  goos:
+    - linux
+  goarch:
+    - arm
+  goarm:
+    - "7"
+  ldflags: -s -w -X main.version={{.Version}}
+
 nfpms:
 - vendor: The Cacophony Project
   homepage: http://cacophony.org.nz/
