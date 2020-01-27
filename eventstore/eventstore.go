@@ -28,7 +28,8 @@ import (
 	"github.com/boltdb/bolt"
 )
 
-var bucketName = []byte("events")
+var oldBucketName = []byte("events")
+var idDataBucketName = []byte("id-data-events") // Bucket with the key being a uint64 and the value being a json
 
 // EventStore perists details for events which are to be sent to the
 // Cacophony Events API.
@@ -45,7 +46,7 @@ func Open(fileName string) (*EventStore, error) {
 	}
 
 	err = db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists(bucketName)
+		_, err := tx.CreateBucketIfNotExists(idDataBucketName)
 		return err
 	})
 	if err != nil {
@@ -64,7 +65,7 @@ func Open(fileName string) (*EventStore, error) {
 func (s *EventStore) Queue(details []byte, timestamp time.Time) error {
 	log.Printf("adding new event: '%s'", string(details))
 	return s.db.Update(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket(bucketName)
+		bucket := tx.Bucket(oldBucketName)
 		rec := bucket.Get(details)
 
 		var writer *bytes.Buffer
@@ -82,13 +83,68 @@ func (s *EventStore) Queue(details []byte, timestamp time.Time) error {
 	})
 }
 
+func (s *EventStore) Add(details []byte) error {
+	log.Println("adding new event")
+	return s.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(idDataBucketName)
+		nextSeq, err := bucket.NextSequence()
+		if err != nil {
+			return err
+		}
+		return bucket.Put(uint64ToByte(nextSeq), details)
+	})
+}
+
+func uint64ToByte(i uint64) []byte {
+	key := make([]byte, 8)
+	binary.LittleEndian.PutUint64(key, i)
+	return key
+}
+
+func byteToUint64(b []byte) uint64 {
+	return binary.LittleEndian.Uint64(b)
+}
+
+func (s *EventStore) Get(key uint64) ([]byte, error) {
+	var val []byte
+	err := s.db.View(func(tx *bolt.Tx) error {
+		val = tx.Bucket(idDataBucketName).Get(uint64ToByte(key))
+		if val == nil {
+			return fmt.Errorf("no key %v found", key)
+		}
+		return nil
+	})
+	return val, err
+}
+
+func (s *EventStore) GetKeys() ([]uint64, error) {
+	keys := []uint64{}
+	err := s.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(idDataBucketName)
+		if bucket == nil {
+			return nil
+		}
+		return bucket.ForEach(func(k, v []byte) error {
+			keys = append(keys, byteToUint64(k))
+			return nil
+		})
+	})
+	return keys, err
+}
+
+func (s *EventStore) Delete(key uint64) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(idDataBucketName).Delete(uint64ToByte(key))
+	})
+}
+
 // All returns all the events stored in the event store as EventTimes
 // instances. Events with identical details are grouped together into
 // a single EventTimes instance.
 func (s *EventStore) All() ([]EventTimes, error) {
 	var out []EventTimes
 	err := s.db.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket(bucketName)
+		bucket := tx.Bucket(oldBucketName)
 		cursor := bucket.Cursor()
 
 		for key, rec := cursor.First(); key != nil; key, rec = cursor.Next() {
@@ -126,7 +182,7 @@ func (s *EventStore) All() ([]EventTimes, error) {
 // Discard removes an event from from the store.
 func (s *EventStore) Discard(ev EventTimes) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket(bucketName)
+		bucket := tx.Bucket(oldBucketName)
 		return bucket.Delete(ev.Details)
 	})
 }

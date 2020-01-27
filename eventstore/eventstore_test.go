@@ -20,6 +20,7 @@ package eventstore
 
 import (
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"testing"
@@ -166,6 +167,44 @@ func (suite *Suite) TestDiscard() {
 	// Removing an already removed item is OK.
 	err = suite.store.Discard(events[1])
 	suite.NoError(err)
+}
+
+func (s *Suite) TestAddAndGet() {
+	data := map[string]struct{}{
+		"data0": {},
+		"data1": {},
+		"data2": {},
+	}
+
+	// Test addign data
+	for d, _ := range data {
+		s.NoError(s.store.Add([]byte(d)), "error with adding data")
+	}
+
+	// Test GetKeys
+	keys, err := s.store.GetKeys()
+	s.NoError(err, "error returned when getting all keys")
+	s.Equal(len(data), len(keys), "error with number of keys returned")
+
+	// Test deleting and getting data
+	deleteKey := keys[0]
+	deleteData, err := s.store.Get(deleteKey)
+	s.NoError(err, "error returned when deleting data")
+	s.NoError(s.store.Delete(deleteKey))
+	delete(data, string(deleteData))
+	keys, err = s.store.GetKeys()
+	s.NoError(err, "error returned when gettign all keys")
+	for _, key := range keys {
+		d, err := s.store.Get(key)
+		s.NoError(err)
+		s.NotNil(d)
+		log.Println(string(d))
+		_, ok := data[string(d)]
+		s.True(ok, "mismatch from data added and in DB")
+		delete(data, string(d)) // Delete data to check that there is no double up
+	}
+	// There should be no data missed
+	s.Equal(0, len(data))
 }
 
 func TestRun(t *testing.T) {

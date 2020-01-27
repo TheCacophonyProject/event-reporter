@@ -82,3 +82,45 @@ func (svc *service) Queue(details []byte, nanos int64) *dbus.Error {
 	}
 	return nil
 }
+
+func (svc *service) Add(data string) *dbus.Error {
+	if err := svc.store.Add([]byte(data)); err != nil {
+		return &dbus.Error{
+			Name: dbusName + ".Errors.AddFailed",
+			Body: []interface{}{err.Error()},
+		}
+	}
+	return nil
+}
+
+func (svc *service) Get(key uint64) (string, *dbus.Error) {
+	data, err := svc.store.Get(key)
+	if err != nil {
+		return "", &dbus.Error{
+			Name: dbusName + ".Errors.GetFailed",
+			Body: []interface{}{err.Error()},
+		}
+	}
+	return string(data), nil
+}
+
+func (svc *service) GetKeys() ([]uint64, *dbus.Error) {
+	keys, err := svc.store.GetKeys()
+	if err != nil {
+		return nil, &dbus.Error{
+			Name: dbusName + ".Errors.GetKeysFailed",
+			Body: []interface{}{err.Error()},
+		}
+	}
+	return keys, nil
+}
+
+func (svc *service) Delete(key uint64) *dbus.Error {
+	if err := svc.store.Delete(key); err != nil {
+		return &dbus.Error{
+			Name: dbusName + ".Errors.DeleteFailed",
+			Body: []interface{}{err.Error()},
+		}
+	}
+	return nil
+}

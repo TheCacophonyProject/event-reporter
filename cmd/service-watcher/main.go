@@ -36,7 +36,7 @@ const (
 
 type LogReport struct {
 	Logs        *[]string
-	Time        time.Time
+	Time        int64
 	UnitName    string
 	ActiveState string
 }
@@ -100,6 +100,7 @@ func runMain() error {
 				return err
 			}
 			logReport, err := json.Marshal(&LogReport{
+				Time:        ts.UnixNano(),
 				UnitName:    unitName,
 				Logs:        rawLogs,
 				ActiveState: activeState,
@@ -113,7 +114,7 @@ func runMain() error {
 				return err
 			}
 			obj := conn.Object("org.cacophony.Events", "/org/cacophony/Events")
-			if err := obj.Call("org.cacophony.Events.Queue", 0, logReport, ts.UnixNano()).Err; err != nil {
+			if err := obj.Call("org.cacophony.Events.Add", 0, string(logReport)).Err; err != nil {
 				return err
 			}
 			lastUnitReportTimes[unitName] = time.Now()
