@@ -21,11 +21,17 @@ package eventstore
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"time"
 
 	"github.com/boltdb/bolt"
+)
+
+const (
+	openTimeout = 5 * time.Second
 )
 
 var oldBucketName = []byte("events")
@@ -40,10 +46,17 @@ type EventStore struct {
 // Open opens the event store. It should be closed later with the
 // Close() method.
 func Open(fileName string) (*EventStore, error) {
-	db, err := bolt.Open(fileName, 0600, nil)
+	db, err := bolt.Open(fileName, 0600, &bolt.Options{Timeout: openTimeout})
 	if err != nil {
 		return nil, err
 	}
+
+	log.Println("getting events to migrate")
+	eventsToMigrate, oldEventTimes, err := getEventsToMigate(db)
+	if err != nil {
+		return nil, err
+	}
+	log.Println("got events to migrate")
 
 	err = db.Update(func(tx *bolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(idDataBucketName)
@@ -54,11 +67,96 @@ func Open(fileName string) (*EventStore, error) {
 		return nil, fmt.Errorf("creating bucket: %v", err)
 	}
 
-	return &EventStore{
-		db: db,
-	}, nil
+	store := &EventStore{db: db}
+	for _, event := range eventsToMigrate {
+		// Adding/Migrating to new bucket
+		if err := store.Add(&event); err != nil {
+			return nil, err
+		}
+	}
+
+	// Delete events from old bucket after migrate
+	err = db.Update(func(tx *bolt.Tx) error {
+		oldBucket := tx.Bucket(oldBucketName)
+		if oldBucket == nil {
+			return nil
+		}
+		for _, oldEventTime := range oldEventTimes {
+			log.Printf("deleting %v", oldEventTime.Details)
+			if err := oldBucket.Delete(oldEventTime.Details); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return store, nil
 }
 
+func getEventsToMigate(db *bolt.DB) ([]Event, []EventTimes, error) {
+	events := []Event{}
+	oldEventTimes := []EventTimes{}
+	err := db.Update(func(tx *bolt.Tx) error {
+		oldBucket := tx.Bucket(oldBucketName)
+		if oldBucket == nil {
+			return nil // No migration needed if there is no old bucket
+		}
+		oldData := map[string][]byte{}
+		err := oldBucket.ForEach(func(k, v []byte) error {
+			oldEventTimes = append(oldEventTimes, EventTimes{Details: k})
+			oldData[string(k)] = v
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		// Struct for reading old format
+		type OldEventStruct struct {
+			Description map[string]interface{}
+		}
+		for oldData, oldTimes := range oldData {
+			event := &OldEventStruct{}
+			if err := json.Unmarshal([]byte(oldData), &event); err != nil {
+				return err
+			}
+
+			eventDetails, err := json.Marshal(event.Description["details"])
+			if err != nil {
+				return err
+			}
+			eventType, ok := event.Description["type"].(string)
+			if !ok {
+				return errors.New("failed to parse old events")
+			}
+			if len(oldTimes)%8 != 1 {
+				return fmt.Errorf("%v is an invalid length for the old time format", len(oldTimes))
+			}
+			times := []time.Time{}
+			for i := 0; i < len(oldTimes)/8; i++ {
+				var nsec int64
+				b := oldTimes[1+i*8 : 1+(i+1)*8] // First byte is a version number and every 8 after that are a uint64
+				binary.Read(bytes.NewBuffer(b), binary.LittleEndian, &nsec)
+				times = append(times, time.Unix(0, nsec))
+			}
+
+			// Add event for every time the old event happened
+			for _, t := range times {
+				e := Event{
+					Description: EventDescription{Type: eventType, Details: string(eventDetails)},
+					Timestamp:   t,
+				}
+				events = append(events, e)
+			}
+		}
+		return nil
+	})
+	return events, oldEventTimes, err
+}
+
+// Use Add for adding new events now. This is keept for testing migrations
 // Queue recordings an event in the event store. The details provided
 // uniquely identify the event, but the contents are opaque to the
 // event store.
@@ -83,32 +181,46 @@ func (s *EventStore) Queue(details []byte, timestamp time.Time) error {
 	})
 }
 
-func (s *EventStore) Add(details []byte) error {
+type Event struct {
+	Timestamp   time.Time
+	Description EventDescription `json:"description"`
+}
+
+type EventDescription struct {
+	Type    string `json:"type"`
+	Details string `json:"details"`
+}
+
+func (s *EventStore) Add(event *Event) error {
 	log.Println("adding new event")
+	data, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
 	return s.db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(idDataBucketName)
 		nextSeq, err := bucket.NextSequence()
 		if err != nil {
 			return err
 		}
-		return bucket.Put(uint64ToByte(nextSeq), details)
+		return bucket.Put(uint64ToBytes(nextSeq), data)
 	})
 }
 
-func uint64ToByte(i uint64) []byte {
+func uint64ToBytes(i uint64) []byte {
 	key := make([]byte, 8)
 	binary.LittleEndian.PutUint64(key, i)
 	return key
 }
 
-func byteToUint64(b []byte) uint64 {
+func bytesToUint64(b []byte) uint64 {
 	return binary.LittleEndian.Uint64(b)
 }
 
 func (s *EventStore) Get(key uint64) ([]byte, error) {
 	var val []byte
 	err := s.db.View(func(tx *bolt.Tx) error {
-		val = tx.Bucket(idDataBucketName).Get(uint64ToByte(key))
+		val = tx.Bucket(idDataBucketName).Get(uint64ToBytes(key))
 		if val == nil {
 			return fmt.Errorf("no key %v found", key)
 		}
@@ -125,7 +237,7 @@ func (s *EventStore) GetKeys() ([]uint64, error) {
 			return nil
 		}
 		return bucket.ForEach(func(k, v []byte) error {
-			keys = append(keys, byteToUint64(k))
+			keys = append(keys, bytesToUint64(k))
 			return nil
 		})
 	})
@@ -134,7 +246,7 @@ func (s *EventStore) GetKeys() ([]uint64, error) {
 
 func (s *EventStore) Delete(key uint64) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
-		return tx.Bucket(idDataBucketName).Delete(uint64ToByte(key))
+		return tx.Bucket(idDataBucketName).Delete(uint64ToBytes(key))
 	})
 }
 

@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"time"
 
@@ -82,15 +83,15 @@ func runMain() error {
 	}
 
 	for {
-		events, err := store.All()
+		eventKeys, err := store.GetKeys()
 		if err != nil {
 			return err
 		}
 
-		sendCount := len(events)
+		sendCount := len(eventKeys)
 		if sendCount > 0 {
 			log.Printf("%d event%s to send", sendCount, plural(sendCount))
-			sendEvents(store, events, cr)
+			sendEvents(store, eventKeys, cr)
 		}
 
 		time.Sleep(args.Interval)
@@ -99,7 +100,7 @@ func runMain() error {
 
 func sendEvents(
 	store *eventstore.EventStore,
-	events []eventstore.EventTimes,
+	eventKeys []uint64,
 	cr *connrequester.ConnectionRequester,
 ) {
 	cr.Start()
@@ -118,17 +119,16 @@ func sendEvents(
 	var tempErrs []error
 	var permErrs []error
 	success := 0
-	for _, event := range events {
-		err := apiClient.ReportEvent(event.Details, event.Timestamps)
-		if err != nil {
+	for _, eventKey := range eventKeys {
+		if err := sendEvent(store, eventKey, apiClient); err != nil {
 			if api.IsPermanentError(err) {
 				permErrs = append(permErrs, err)
-				store.Discard(event)
+				//store.Discard(event)	//TODO don't discard event if it was a authentication error
 			} else {
 				tempErrs = append(tempErrs, err)
 			}
 		} else {
-			store.Discard(event)
+			store.Delete(eventKey)
 			success++
 		}
 	}
@@ -137,6 +137,19 @@ func sendEvents(
 	if success > 0 {
 		log.Printf("%d event%s sent", success, plural(success))
 	}
+}
+
+func sendEvent(store *eventstore.EventStore, eventKey uint64, apiClient *api.CacophonyAPI) error {
+	eventBytes, err := store.Get(eventKey)
+	if err != nil {
+		return err
+	}
+	event := &eventstore.Event{}
+	if err := json.Unmarshal(eventBytes, event); err != nil {
+		return err
+	}
+	log.Printf("sending event %v", event)
+	return apiClient.ReportEvent(eventBytes, []time.Time{event.Timestamp})
 }
 
 func logLastErrors(label string, errs []error) {

@@ -69,22 +69,15 @@ type service struct {
 	store *eventstore.EventStore
 }
 
-// Queue adds an event to the event store. It is exposed over DBUS.
-// The event details must be supplied as JSON encoded bytes and the
-// timestamp as the number of nanoseconds since 1970-01-01 UTC.
-func (svc *service) Queue(details []byte, nanos int64) *dbus.Error {
-	err := svc.store.Queue(details, time.Unix(0, nanos))
-	if err != nil {
-		return &dbus.Error{
-			Name: dbusName + ".Errors.QueueFailed",
-			Body: []interface{}{err.Error()},
-		}
+func (svc *service) Add(details string, eventType string, unixNsec int64) *dbus.Error {
+	event := &eventstore.Event{
+		Timestamp: time.Unix(0, unixNsec),
+		Description: eventstore.EventDescription{
+			Details: details,
+			Type:    eventType,
+		},
 	}
-	return nil
-}
-
-func (svc *service) Add(data string) *dbus.Error {
-	if err := svc.store.Add([]byte(data)); err != nil {
+	if err := svc.store.Add(event); err != nil {
 		return &dbus.Error{
 			Name: dbusName + ".Errors.AddFailed",
 			Body: []interface{}{err.Error()},
