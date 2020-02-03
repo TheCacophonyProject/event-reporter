@@ -85,9 +85,10 @@ func (s *Suite) TestMigrate() {
 		"audioBait1",
 		"audioBait2",
 	}
+	t := Now()
 	times := map[time.Time]int{
-		Now():                  0,
-		Now().Add(time.Second): 1,
+		t:                  0,
+		t.Add(time.Second): 1,
 	}
 
 	// Adding some event using the old method
@@ -127,17 +128,20 @@ func (s *Suite) TestMigrate() {
 }
 
 func (s *Suite) TestAddAndGet() {
+	time1 := Now()
+	time2 := Now().Add(time.Second)
+	time3 := Now().Add(2 * time.Second)
 	events := map[time.Time]Event{
-		Now(): Event{
+		time1: Event{
 			Description: EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "type1"},
-			Timestamp:   Now(),
+			Timestamp:   time1,
 		},
-		Now().Add(time.Second): Event{
-			Timestamp:   Now().Add(time.Second),
+		time2.Add(time.Second): Event{
+			Timestamp:   time2,
 			Description: EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "type1"},
 		},
-		Now().Add(2 * time.Second): Event{
-			Timestamp:   Now().Add(2 * time.Second),
+		time3: Event{
+			Timestamp:   time3,
 			Description: EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "type1"},
 		},
 	}
