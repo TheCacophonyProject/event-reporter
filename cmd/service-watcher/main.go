@@ -33,6 +33,7 @@ import (
 
 const (
 	minTimeBetweenReports = 20 * time.Minute //TODO add into cacophony-config
+	logLines              = 20               //TODO add into cacophony-config
 )
 
 type LogReport struct {
@@ -96,7 +97,7 @@ func runMain() error {
 			log.Println("unitname:", unitName)
 			log.Println("activeState:", activeState)
 
-			rawLogs, failed, err := getLogs(update.UnitName, 20)
+			rawLogs, failed, err := getLogs(update.UnitName, logLines)
 			if err != nil {
 				return err
 			}
