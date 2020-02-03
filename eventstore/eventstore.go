@@ -51,12 +51,12 @@ func Open(fileName string) (*EventStore, error) {
 		return nil, err
 	}
 
-	log.Println("getting events to migrate")
+	log.Println("getting events to migrate from old bucket")
 	eventsToMigrate, oldEventTimes, err := getEventsToMigate(db)
 	if err != nil {
 		return nil, err
 	}
-	log.Println("got events to migrate")
+	log.Printf("got %d events to migrate from old bucket\n", len(eventsToMigrate))
 
 	err = db.Update(func(tx *bolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(oldBucketName)
@@ -78,6 +78,7 @@ func Open(fileName string) (*EventStore, error) {
 			return nil, err
 		}
 	}
+	log.Println("migrated all old events")
 
 	// Delete events from old bucket after migrate
 	err = db.Update(func(tx *bolt.Tx) error {

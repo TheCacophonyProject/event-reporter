@@ -120,10 +120,8 @@ func (s *Suite) TestMigrate() {
 		s.Equal(details[i], event.Description.Details) // Checkign that details was properly migrated
 	}
 
-	// Close and open store again checking that the migration doesn't happen twice
-	store2.Close()
-	store3 := s.openStore()
-	eventTimes, err := store3.All()
+	// Check that migrated events are deleted
+	eventTimes, err := store2.All() // Old way of getting events
 	s.NoError(err)
 	s.Equal(len(eventTimes), 0)
 }
@@ -171,10 +169,8 @@ func (s *Suite) TestAddAndGet() {
 		s.NoError(err)
 		s.NotNil(eventBytes)
 		event := &Event{}
-		json.Unmarshal(eventBytes, event)
-		_, ok := events[event.Timestamp]
-
-		s.True(ok, "mismatch from data added and in DB")
+		s.NoError(json.Unmarshal(eventBytes, event))
+		s.Equal(*event, events[event.Timestamp])
 		delete(events, event.Timestamp) // Delete data to check that there is no double up
 	}
 	// There should be no data missed
