@@ -101,13 +101,13 @@ func runMain() error {
 				return err
 			}
 			if !failed {
-				break // Can just be a service restarting
+				break // Can just be a service activating
 			}
 
 			event := eventstore.Event{
 				Timestamp: ts,
 				Description: eventstore.EventDescription{
-					Type: "system-error",
+					Type: "systemError",
 					Details: map[string]interface{}{
 						"versoin":     1,
 						"unitName":    unitName,
@@ -148,7 +148,7 @@ func getLogs(unitName string, number int) (*[]string, bool, error) {
 		var rawLog LogsRaw
 		json.Unmarshal([]byte(strlog), &rawLog)
 		// Only get logs from this session
-		if rawLog.SystemdUnit == "init.scope" && strings.Contains(rawLog.Message, "Started") {
+		if rawLog.SystemdUnit == "init.scope" {
 			if strings.Contains(rawLog.Message, "Started") {
 				logs = []string{}
 				failed = false
