@@ -42,7 +42,10 @@ nfpms:
   bindir: /usr/bin
   files:
     "_release/event-reporter.service": "/etc/systemd/system/event-reporter.service"
+    "_release/service-watcher.service": "/etc/systemd/system/service-watcher.service"
     "_release/org.cacophony.Events.conf": "/etc/dbus-1/system.d/org.cacophony.Events.conf"
+  scripts:
+    postinstall: "_release/postinstall.sh"
 
 checksum:
   name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'

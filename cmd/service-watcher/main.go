@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	minTimeBetweenReports = time.Minute
+	minTimeBetweenReports = 20 * time.Minute //TODO add into cacophony-config
 )
 
 type LogReport struct {
