@@ -131,21 +131,20 @@ func (s *Suite) TestAddAndGet() {
 	time1 := Now()
 	time2 := Now().Add(time.Second)
 	time3 := Now().Add(2 * time.Second)
-	events := map[time.Time]Event{
-		time1: Event{
+	events := map[int64]Event{
+		time1.Unix(): Event{
 			Description: EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "type1"},
 			Timestamp:   time1,
 		},
-		time2.Add(time.Second): Event{
+		time2.Unix(): Event{
 			Timestamp:   time2,
 			Description: EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "type1"},
 		},
-		time3: Event{
+		time3.Unix(): Event{
 			Timestamp:   time3,
 			Description: EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "type1"},
 		},
 	}
-
 	// Test addign data
 	for _, e := range events {
 		s.NoError(s.store.Add(&e), "error with adding data")
@@ -163,7 +162,7 @@ func (s *Suite) TestAddAndGet() {
 	deletedEvent := &Event{}
 	json.Unmarshal(deletedEventBytes, deletedEvent)
 	s.NoError(s.store.Delete(deleteKey))
-	delete(events, deletedEvent.Timestamp)
+	delete(events, deletedEvent.Timestamp.Unix())
 	keys, err = s.store.GetKeys()
 	s.NoError(err, "error returned when gettign all keys")
 
@@ -174,8 +173,8 @@ func (s *Suite) TestAddAndGet() {
 		s.NotNil(eventBytes)
 		event := &Event{}
 		s.NoError(json.Unmarshal(eventBytes, event))
-		s.Equal(*event, events[event.Timestamp.Truncate(time.Second)])
-		delete(events, event.Timestamp.Truncate(time.Second)) // Delete data to check that there is no double up
+		s.Equal(*event, events[event.Timestamp.Unix()])
+		delete(events, event.Timestamp.Unix()) // Delete data to check that there is no double up
 	}
 	// There should be no data missed
 	s.Equal(0, len(events))
