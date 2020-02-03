@@ -59,7 +59,11 @@ func Open(fileName string) (*EventStore, error) {
 	log.Println("got events to migrate")
 
 	err = db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists(idDataBucketName)
+		_, err := tx.CreateBucketIfNotExists(oldBucketName)
+		if err != nil {
+			return err
+		}
+		_, err = tx.CreateBucketIfNotExists(idDataBucketName)
 		return err
 	})
 	if err != nil {
@@ -123,9 +127,9 @@ func getEventsToMigate(db *bolt.DB) ([]Event, []EventTimes, error) {
 				return err
 			}
 
-			eventDetails, err := json.Marshal(event.Description["details"])
-			if err != nil {
-				return err
+			eventDetails, ok := event.Description["details"].(map[string]interface{})
+			if !ok {
+				return errors.New("could not parse event details")
 			}
 			eventType, ok := event.Description["type"].(string)
 			if !ok {
@@ -145,7 +149,7 @@ func getEventsToMigate(db *bolt.DB) ([]Event, []EventTimes, error) {
 			// Add event for every time the old event happened
 			for _, t := range times {
 				e := Event{
-					Description: EventDescription{Type: eventType, Details: string(eventDetails)},
+					Description: EventDescription{Type: eventType, Details: eventDetails},
 					Timestamp:   t,
 				}
 				events = append(events, e)
@@ -187,8 +191,8 @@ type Event struct {
 }
 
 type EventDescription struct {
-	Type    string `json:"type"`
-	Details string `json:"details"`
+	Type    string                 `json:"type"`
+	Details map[string]interface{} `json:"details"`
 }
 
 func (s *EventStore) Add(event *Event) error {

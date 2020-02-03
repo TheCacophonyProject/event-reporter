@@ -112,13 +112,12 @@ func (s *Suite) TestMigrate() {
 	// Check that each event did a proper migration
 	for _, key := range keys {
 		detailsBytes, err := store2.Get(key)
+		s.NoError(err)
 		event := &Event{}
 		s.NoError(json.Unmarshal(detailsBytes, event))
 		i := times[event.Timestamp]
-		s.Equal(types[i], event.Description.Type) // Checkign that type was properly migrated
-		detailsRaw, err := json.Marshal(details[i])
-		s.NoError(err)
-		s.Equal(string(detailsRaw), event.Description.Details) // Checkign that details was properly migrated
+		s.Equal(types[i], event.Description.Type)      // Checkign that type was properly migrated
+		s.Equal(details[i], event.Description.Details) // Checkign that details was properly migrated
 	}
 
 	// Close and open store again checking that the migration doesn't happen twice
@@ -130,14 +129,23 @@ func (s *Suite) TestMigrate() {
 }
 
 func (s *Suite) TestAddAndGet() {
-	events := map[Event]struct{}{
-		Event{Description: EventDescription{Details: "details1", Type: "type1"}}: {},
-		Event{Description: EventDescription{Details: "details2", Type: "type2"}}: {},
-		Event{Description: EventDescription{Details: "details3", Type: "type3"}}: {},
+	events := map[time.Time]Event{
+		Now(): Event{
+			Description: EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "type1"},
+			Timestamp:   Now(),
+		},
+		Now().Add(time.Second): Event{
+			Timestamp:   Now().Add(time.Second),
+			Description: EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "type1"},
+		},
+		Now().Add(2 * time.Second): Event{
+			Timestamp:   Now().Add(2 * time.Second),
+			Description: EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "type1"},
+		},
 	}
 
 	// Test addign data
-	for e, _ := range events {
+	for _, e := range events {
 		s.NoError(s.store.Add(&e), "error with adding data")
 	}
 
@@ -153,7 +161,7 @@ func (s *Suite) TestAddAndGet() {
 	deletedEvent := &Event{}
 	json.Unmarshal(deletedEventBytes, deletedEvent)
 	s.NoError(s.store.Delete(deleteKey))
-	delete(events, *deletedEvent)
+	delete(events, deletedEvent.Timestamp)
 	keys, err = s.store.GetKeys()
 	s.NoError(err, "error returned when gettign all keys")
 
@@ -164,9 +172,10 @@ func (s *Suite) TestAddAndGet() {
 		s.NotNil(eventBytes)
 		event := &Event{}
 		json.Unmarshal(eventBytes, event)
-		_, ok := events[*event]
+		_, ok := events[event.Timestamp]
+
 		s.True(ok, "mismatch from data added and in DB")
-		delete(events, *event) // Delete data to check that there is no double up
+		delete(events, event.Timestamp) // Delete data to check that there is no double up
 	}
 	// There should be no data missed
 	s.Equal(0, len(events))
@@ -178,5 +187,5 @@ func TestRun(t *testing.T) {
 
 func Now() time.Time {
 	// Truncate necessary to get rid of monotonic clock reading.
-	return time.Now().Truncate(time.Nanosecond)
+	return time.Now().Truncate(time.Second)
 }
