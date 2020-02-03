@@ -175,8 +175,8 @@ func (s *Suite) TestAddAndGet() {
 		s.NotNil(eventBytes)
 		event := &Event{}
 		s.NoError(json.Unmarshal(eventBytes, event))
-		s.Equal(*event, events[event.Timestamp])
-		delete(events, event.Timestamp) // Delete data to check that there is no double up
+		s.Equal(*event, events[event.Timestamp.Truncate(time.Second)])
+		delete(events, event.Timestamp.Truncate(time.Second)) // Delete data to check that there is no double up
 	}
 	// There should be no data missed
 	s.Equal(0, len(events))
