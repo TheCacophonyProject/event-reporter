@@ -27,7 +27,8 @@ import (
 	"time"
 
 	systemdbus "github.com/coreos/go-systemd/dbus"
-	"github.com/godbus/dbus"
+
+	"github.com/TheCacophonyProject/event-reporter/eventstore"
 )
 
 const (
@@ -95,26 +96,30 @@ func runMain() error {
 			log.Println("unitname:", unitName)
 			log.Println("activeState:", activeState)
 
-			rawLogs, err := getLogs(update.UnitName, 20)
+			rawLogs, failed, err := getLogs(update.UnitName, 20)
 			if err != nil {
 				return err
 			}
-			logReport, err := json.Marshal(&LogReport{
-				Time:        ts.UnixNano(),
-				UnitName:    unitName,
-				Logs:        rawLogs,
-				ActiveState: activeState,
-			})
-			if err != nil {
-				return err
+			if !failed {
+				break // Can just be a service restarting
 			}
 
-			conn, err := dbus.SystemBus()
+			event := eventstore.Event{
+				Timestamp: ts,
+				Description: eventstore.EventDescription{
+					Type: "system-error",
+					Details: map[string]interface{}{
+						"versoin":     1,
+						"unitName":    unitName,
+						"logs":        rawLogs,
+						"activeState": activeState,
+					},
+				},
+			}
 			if err != nil {
 				return err
 			}
-			obj := conn.Object("org.cacophony.Events", "/org/cacophony/Events")
-			if err := obj.Call("org.cacophony.Events.Add", 0, string(logReport)).Err; err != nil {
+			if err := eventstore.AddEvent(event); err != nil {
 				return err
 			}
 			lastUnitReportTimes[unitName] = time.Now()
@@ -125,7 +130,8 @@ func runMain() error {
 	}
 }
 
-func getLogs(unitName string, number int) (*[]string, error) {
+func getLogs(unitName string, number int) (*[]string, bool, error) {
+	failed := false
 	cmd := exec.Command(
 		"journalctl",
 		"-u", unitName,
@@ -133,7 +139,7 @@ func getLogs(unitName string, number int) (*[]string, error) {
 		"-n", strconv.Itoa(number))
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	strLogs := strings.Split(string(out), "\n")
 	logs := []string{}
@@ -143,14 +149,20 @@ func getLogs(unitName string, number int) (*[]string, error) {
 		json.Unmarshal([]byte(strlog), &rawLog)
 		// Only get logs from this session
 		if rawLog.SystemdUnit == "init.scope" && strings.Contains(rawLog.Message, "Started") {
-			logs = []string{}
+			if strings.Contains(rawLog.Message, "Started") {
+				logs = []string{}
+				failed = false
+			}
+			if strings.Contains(rawLog.Message, "Unit entered failed state.") {
+				failed = true
+			}
 		}
 		logs = append(logs, rawLog.Message)
 	}
 	for _, l := range logs {
 		log.Println(l)
 	}
-	return &logs, nil
+	return &logs, failed, nil
 }
 
 func inActiveStates(state string) bool {
