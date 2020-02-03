@@ -72,37 +72,35 @@ func (s *Suite) TestMigrate() {
 	})
 	s.NoError(err)
 
-	details := []map[string]interface{}{
-		map[string]interface{}{
-			"fileId": "bird2",
-			"volume": "2",
-		},
-		map[string]interface{}{
-			"fileId": "cat1",
-			"volume": "1",
-		},
-	}
-	types := []string{
-		"audioBait1",
-		"audioBait2",
-	}
 	t := Now()
-	times := map[time.Time]int{
-		t:                  0,
-		t.Add(time.Second): 1,
+	e := map[int64]map[string]interface{}{
+		t.Unix(): {
+			"details": map[string]interface{}{
+				"fileId": "cat1",
+				"volume": "1",
+			},
+			"type": "audiobait1",
+		},
+		t.Add(time.Second).Unix(): {
+			"details": map[string]interface{}{
+				"fileId": "bird2",
+				"volume": "2",
+			},
+			"type": "audiobait2",
+		},
 	}
-
+	log.Printf("events to migrate %+v", e)
 	// Adding some event using the old method
-	for t, i := range times {
+	for t, i := range e {
 		eventDetails := map[string]interface{}{
 			"description": map[string]interface{}{
-				"type":    types[i],
-				"details": details[i],
+				"type":    i["type"],
+				"details": i["details"],
 			},
 		}
 		detailsJSON1, err := json.Marshal(&eventDetails)
 		s.NoError(err)
-		s.NoError(s.store.Queue(detailsJSON1, t))
+		s.NoError(s.store.Queue(detailsJSON1, time.Unix(t, 0)))
 	}
 
 	// Close and reopen store, the migration happens when the store is opened so
@@ -117,9 +115,10 @@ func (s *Suite) TestMigrate() {
 		s.NoError(err)
 		event := &Event{}
 		s.NoError(json.Unmarshal(detailsBytes, event))
-		i := times[event.Timestamp]
-		s.Equal(types[i], event.Description.Type)      // Checkign that type was properly migrated
-		s.Equal(details[i], event.Description.Details) // Checkign that details was properly migrated
+		i := e[event.Timestamp.Unix()]
+		log.Printf("event time %d", event.Timestamp.Unix())
+		s.Equal(i["type"], event.Description.Type)       // Checkign that type was properly migrated
+		s.Equal(i["details"], event.Description.Details) // Checkign that details was properly migrated
 	}
 
 	// Check that migrated events are deleted
