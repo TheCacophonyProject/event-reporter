@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -69,7 +70,27 @@ type service struct {
 	store *eventstore.EventStore
 }
 
-func (svc *service) Add(details string, eventType string, unixNsec int64) *dbus.Error {
+// Queue is deprecated. Use Add from now on
+// Queue adds an event to the event store. It is exposed over DBUS.
+// The event details must be supplied as JSON encoded bytes and the
+// timestamp as the number of nanoseconds since 1970-01-01 UTC.
+func (svc *service) Queue(details []byte, nanos int64) *dbus.Error {
+	err := svc.store.Queue(details, time.Unix(0, nanos))
+	if err != nil {
+		return &dbus.Error{
+			Name: dbusName + ".Errors.QueueFailed",
+			Body: []interface{}{err.Error()},
+		}
+	}
+	return nil
+}
+
+func (svc *service) Add(detailsRaw string, eventType string, unixNsec int64) *dbus.Error {
+	details := map[string]interface{}{}
+	if err := json.Unmarshal([]byte(detailsRaw), &details); err != nil {
+		return dbusErr("", err)
+	}
+
 	event := &eventstore.Event{
 		Timestamp: time.Unix(0, unixNsec),
 		Description: eventstore.EventDescription{
@@ -77,22 +98,24 @@ func (svc *service) Add(details string, eventType string, unixNsec int64) *dbus.
 			Type:    eventType,
 		},
 	}
-	if err := svc.store.Add(event); err != nil {
-		return &dbus.Error{
-			Name: dbusName + ".Errors.AddFailed",
-			Body: []interface{}{err.Error()},
-		}
+
+	return dbusErr(".Errors.AddFailed", svc.store.Add(event))
+}
+
+func dbusErr(name string, err error) *dbus.Error {
+	if err == nil {
+		return nil
 	}
-	return nil
+	return &dbus.Error{
+		Name: dbusName + name,
+		Body: []interface{}{err.Error()},
+	}
 }
 
 func (svc *service) Get(key uint64) (string, *dbus.Error) {
 	data, err := svc.store.Get(key)
 	if err != nil {
-		return "", &dbus.Error{
-			Name: dbusName + ".Errors.GetFailed",
-			Body: []interface{}{err.Error()},
-		}
+		return "", dbusErr(".Errors.GetFailed", err)
 	}
 	return string(data), nil
 }
@@ -100,20 +123,11 @@ func (svc *service) Get(key uint64) (string, *dbus.Error) {
 func (svc *service) GetKeys() ([]uint64, *dbus.Error) {
 	keys, err := svc.store.GetKeys()
 	if err != nil {
-		return nil, &dbus.Error{
-			Name: dbusName + ".Errors.GetKeysFailed",
-			Body: []interface{}{err.Error()},
-		}
+		return nil, dbusErr(".Errors.GetKeysFailed", err)
 	}
 	return keys, nil
 }
 
 func (svc *service) Delete(key uint64) *dbus.Error {
-	if err := svc.store.Delete(key); err != nil {
-		return &dbus.Error{
-			Name: dbusName + ".Errors.DeleteFailed",
-			Body: []interface{}{err.Error()},
-		}
-	}
-	return nil
+	return dbusErr(".Errors.DeleteFailed", svc.store.Delete(key))
 }
