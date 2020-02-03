@@ -21,6 +21,7 @@ package eventstore
 import (
 	"encoding/json"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"testing"
@@ -179,6 +180,7 @@ func (s *Suite) TestAddAndGet() {
 	}
 	// There should be no data missed
 	s.Equal(0, len(events))
+	log.Println(events)
 }
 
 func TestRun(t *testing.T) {
