@@ -1,5 +1,5 @@
 /*
-management-interface - Web based management of Raspberry Pis over WiFi
+eventclient - client for accessign Cacophony events
 Copyright (C) 2020, The Cacophony Project
 
 This program is free software: you can redistribute it and/or modify
@@ -16,24 +16,33 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-package eventstore
+package eventclient
 
 import (
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/godbus/dbus"
+
+	"github.com/TheCacophonyProject/event-reporter/eventstore"
 )
 
+type Event struct {
+	Timestamp time.Time
+	Type      string
+	Details   map[string]interface{}
+}
+
 func AddEvent(event Event) error {
-	detailsBytes, err := json.Marshal(event.Description.Details)
+	detailsBytes, err := json.Marshal(event.Details)
 	if err != nil {
 		return err
 	}
 	_, err = eventsDbusCall(
 		"org.cacophony.Events.Add",
 		string(detailsBytes),
-		event.Description.Type,
+		event.Type,
 		event.Timestamp.UnixNano())
 	return err
 }
@@ -65,11 +74,15 @@ func GetEvent(key uint64) (*Event, error) {
 	if !ok {
 		return nil, errors.New("error reading event data")
 	}
-	var event Event
+	var event eventstore.Event
 	if err := json.Unmarshal([]byte(eventString), &event); err != nil {
 		return nil, err
 	}
-	return &event, nil
+	return &Event{
+		Timestamp: event.Timestamp,
+		Type:      event.Description.Type,
+		Details:   event.Description.Details,
+	}, nil
 }
 
 func DeleteEvent(key uint64) error {

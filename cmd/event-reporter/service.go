@@ -102,16 +102,6 @@ func (svc *service) Add(detailsRaw string, eventType string, unixNsec int64) *db
 	return dbusErr(".Errors.AddFailed", svc.store.Add(event))
 }
 
-func dbusErr(name string, err error) *dbus.Error {
-	if err == nil {
-		return nil
-	}
-	return &dbus.Error{
-		Name: dbusName + name,
-		Body: []interface{}{err.Error()},
-	}
-}
-
 func (svc *service) Get(key uint64) (string, *dbus.Error) {
 	data, err := svc.store.Get(key)
 	if err != nil {
@@ -130,4 +120,14 @@ func (svc *service) GetKeys() ([]uint64, *dbus.Error) {
 
 func (svc *service) Delete(key uint64) *dbus.Error {
 	return dbusErr(".Errors.DeleteFailed", svc.store.Delete(key))
+}
+
+func dbusErr(name string, err error) *dbus.Error {
+	if err == nil {
+		return nil
+	}
+	return &dbus.Error{
+		Name: dbusName + name,
+		Body: []interface{}{err.Error()},
+	}
 }

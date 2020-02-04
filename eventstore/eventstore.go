@@ -51,13 +51,6 @@ func Open(fileName string) (*EventStore, error) {
 		return nil, err
 	}
 
-	log.Println("getting events to migrate from old bucket")
-	eventsToMigrate, oldEventTimes, err := getEventsToMigate(db)
-	if err != nil {
-		return nil, err
-	}
-	log.Printf("got %d events to migrate from old bucket\n", len(eventsToMigrate))
-
 	err = db.Update(func(tx *bolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(oldBucketName)
 		if err != nil {
@@ -71,17 +64,34 @@ func Open(fileName string) (*EventStore, error) {
 		return nil, fmt.Errorf("creating bucket: %v", err)
 	}
 
-	store := &EventStore{db: db}
+	store := EventStore{db: db}
+	if err := migrate(store); err != nil {
+		return nil, err
+	}
+	return &store, nil
+}
+
+func migrate(store EventStore) error {
+	log.Println("getting events to migrate from old bucket")
+	eventsToMigrate, oldEventTimes, err := getEventsToMigate(store.db)
+	if err != nil {
+		return err
+	}
+	if len(eventsToMigrate) == 0 {
+		log.Println("no events to migrate")
+		return nil
+	}
+	log.Printf("got %d events to migrate from old bucket\n", len(eventsToMigrate))
 	for _, event := range eventsToMigrate {
 		// Adding/Migrating to new bucket
 		if err := store.Add(&event); err != nil {
-			return nil, err
+			return err
 		}
 	}
 	log.Println("migrated all old events")
 
 	// Delete events from old bucket after migrate
-	err = db.Update(func(tx *bolt.Tx) error {
+	return store.db.Update(func(tx *bolt.Tx) error {
 		oldBucket := tx.Bucket(oldBucketName)
 		if oldBucket == nil {
 			return nil
@@ -94,11 +104,6 @@ func Open(fileName string) (*EventStore, error) {
 		}
 		return nil
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	return store, nil
 }
 
 func getEventsToMigate(db *bolt.DB) ([]Event, []EventTimes, error) {
@@ -169,6 +174,9 @@ func (s *EventStore) Queue(details []byte, timestamp time.Time) error {
 	log.Printf("adding new event: '%s'", string(details))
 	return s.db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(oldBucketName)
+		if bucket == nil {
+			return noBucketErr(oldBucketName)
+		}
 		rec := bucket.Get(details)
 
 		var writer *bytes.Buffer
@@ -225,7 +233,11 @@ func bytesToUint64(b []byte) uint64 {
 func (s *EventStore) Get(key uint64) ([]byte, error) {
 	var val []byte
 	err := s.db.View(func(tx *bolt.Tx) error {
-		val = tx.Bucket(idDataBucketName).Get(uint64ToBytes(key))
+		bucket := tx.Bucket(idDataBucketName)
+		if bucket == nil {
+			return noBucketErr(idDataBucketName)
+		}
+		val = bucket.Get(uint64ToBytes(key))
 		if val == nil {
 			return fmt.Errorf("no key %v found", key)
 		}
@@ -239,7 +251,7 @@ func (s *EventStore) GetKeys() ([]uint64, error) {
 	err := s.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(idDataBucketName)
 		if bucket == nil {
-			return nil
+			return noBucketErr(idDataBucketName)
 		}
 		return bucket.ForEach(func(k, v []byte) error {
 			keys = append(keys, bytesToUint64(k))
@@ -249,9 +261,17 @@ func (s *EventStore) GetKeys() ([]uint64, error) {
 	return keys, err
 }
 
+func noBucketErr(name []byte) error {
+	return fmt.Errorf("no event bucket found called '%s'", name)
+}
+
 func (s *EventStore) Delete(key uint64) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
-		return tx.Bucket(idDataBucketName).Delete(uint64ToBytes(key))
+		bucket := tx.Bucket(idDataBucketName)
+		if bucket == nil {
+			return noBucketErr(idDataBucketName)
+		}
+		return bucket.Delete(uint64ToBytes(key))
 	})
 }
 

@@ -26,14 +26,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/TheCacophonyProject/event-reporter/eventclient"
 	systemdbus "github.com/coreos/go-systemd/dbus"
-
-	"github.com/TheCacophonyProject/event-reporter/eventstore"
 )
 
 const (
 	minTimeBetweenReports = 20 * time.Minute //TODO add into cacophony-config
-	logLines              = 20               //TODO add into cacophony-config
+	numLogLines           = 20               //TODO add into cacophony-config
 )
 
 type LogReport struct {
@@ -62,21 +61,21 @@ func runMain() error {
 
 	conn, err := systemdbus.New()
 	if err != nil {
-		log.Println("failed to connect to dbus")
+		log.Printf("failed to connect to dbus: %v", err)
 		return err
 	}
+	log.Println("connected to systemdbus")
 
 	defer conn.Close()
 
 	if err := conn.Subscribe(); err != nil {
-		log.Println("failed to subscribe to the dbus")
+		log.Printf("failed to subscribe to the dbus: %v", err)
 		return err
 	}
 
 	updateCh := make(chan *systemdbus.PropertiesUpdate, 256)
 	errCh := make(chan error, 256)
 	conn.SetPropertiesSubscriber(updateCh, errCh)
-
 	lastUnitReportTimes := map[string]time.Time{}
 
 	for {
@@ -86,7 +85,7 @@ func runMain() error {
 			activeState := strings.Trim(update.Changed["ActiveState"].String(), "\"")
 			unitName := update.UnitName
 			// Only process states we are interested in
-			if !inActiveStates(activeState) {
+			if !isInterestingState(activeState) {
 				break
 			}
 			if t, ok := lastUnitReportTimes[unitName]; ok && time.Now().Sub(t) < minTimeBetweenReports {
@@ -94,10 +93,7 @@ func runMain() error {
 				break
 			}
 
-			log.Println("unitname:", unitName)
-			log.Println("activeState:", activeState)
-
-			rawLogs, failed, err := getLogs(update.UnitName, logLines)
+			rawLogs, failed, err := getLogs(unitName, numLogLines)
 			if err != nil {
 				return err
 			}
@@ -105,53 +101,59 @@ func runMain() error {
 				break // Can just be a service activating
 			}
 
-			event := eventstore.Event{
+			log.Printf("service failed. unitname: %s, activeState: %s", unitName, activeState)
+			for _, l := range rawLogs {
+				log.Println(l)
+			}
+
+			event := eventclient.Event{
 				Timestamp: ts,
-				Description: eventstore.EventDescription{
-					Type: "systemError",
-					Details: map[string]interface{}{
-						"versoin":     1,
-						"unitName":    unitName,
-						"logs":        rawLogs,
-						"activeState": activeState,
-					},
+				Type:      "systemError",
+				Details: map[string]interface{}{
+					"version":     1,
+					"unitName":    unitName,
+					"logs":        rawLogs,
+					"activeState": activeState,
 				},
 			}
 			if err != nil {
 				return err
 			}
-			if err := eventstore.AddEvent(event); err != nil {
+			if err := eventclient.AddEvent(event); err != nil {
 				return err
 			}
 			lastUnitReportTimes[unitName] = time.Now()
 
 		case err := <-errCh:
-			log.Println("err:", err)
+			log.Printf("error reading systemd property change: %v", err)
+			return err
 		}
 	}
 }
 
-func getLogs(unitName string, number int) (*[]string, bool, error) {
+func getLogs(unitName string, numLines int) ([]string, bool, error) {
 	failed := false
 	cmd := exec.Command(
 		"journalctl",
 		"-u", unitName,
 		"--output=json",
-		"-n", strconv.Itoa(number))
+		"-n", strconv.Itoa(numLines))
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, false, err
 	}
-	strLogs := strings.Split(string(out), "\n")
-	logs := []string{}
+	strLogs := strings.Split(strings.Trim(string(out), "\n"), "\n")
+	var logs []string
 
 	for _, strlog := range strLogs {
 		var rawLog LogsRaw
-		json.Unmarshal([]byte(strlog), &rawLog)
+		if err := json.Unmarshal([]byte(strlog), &rawLog); err != nil {
+			return nil, false, err
+		}
 		// Only get logs from this session
 		if rawLog.SystemdUnit == "init.scope" {
 			if strings.Contains(rawLog.Message, "Started") {
-				logs = []string{}
+				logs = nil
 				failed = false
 			}
 			if strings.Contains(rawLog.Message, "Unit entered failed state.") {
@@ -160,13 +162,10 @@ func getLogs(unitName string, number int) (*[]string, bool, error) {
 		}
 		logs = append(logs, rawLog.Message)
 	}
-	for _, l := range logs {
-		log.Println(l)
-	}
-	return &logs, failed, nil
+	return logs, failed, nil
 }
 
-func inActiveStates(state string) bool {
+func isInterestingState(state string) bool {
 	switch state {
 	case
 		//"active",			// triggered when service exec is started

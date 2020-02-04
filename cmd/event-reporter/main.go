@@ -116,24 +116,22 @@ func sendEvents(
 		return
 	}
 
-	var tempErrs []error
-	var permErrs []error
+	var errs []error
 	success := 0
 	for _, eventKey := range eventKeys {
 		if err := sendEvent(store, eventKey, apiClient); err != nil {
-			if api.IsPermanentError(err) {
-				permErrs = append(permErrs, err)
-				//store.Discard(event)	//TODO don't discard event if it was a authentication error
-			} else {
-				tempErrs = append(tempErrs, err)
-			}
+			errs = append(errs, err)
 		} else {
 			store.Delete(eventKey)
 			success++
 		}
 	}
-	logLastErrors("temporary", tempErrs)
-	logLastErrors("permanent", permErrs)
+	if len(errs) > 0 {
+		log.Printf("%d error%s occurred during reporting. Most recent:", len(errs), plural(len(errs)))
+		for _, err := range last5Errs(errs) {
+			log.Printf("  %v", err)
+		}
+	}
 	if success > 0 {
 		log.Printf("%d event%s sent", success, plural(success))
 	}
@@ -150,16 +148,6 @@ func sendEvent(store *eventstore.EventStore, eventKey uint64, apiClient *api.Cac
 	}
 	log.Printf("sending event %v", event)
 	return apiClient.ReportEvent(eventBytes, []time.Time{event.Timestamp})
-}
-
-func logLastErrors(label string, errs []error) {
-	if len(errs) < 1 {
-		return
-	}
-	log.Printf("%d %s error%s occurred during reporting. Most recent:", len(errs), label, plural(len(errs)))
-	for _, err := range last5Errs(errs) {
-		log.Printf("  %v", err)
-	}
 }
 
 func last5Errs(errs []error) []error {
