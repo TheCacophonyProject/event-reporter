@@ -1,5 +1,5 @@
 /*
-eventclient - client for accessign Cacophony events
+eventclient - client for accessing Cacophony events
 Copyright (C) 2020, The Cacophony Project
 
 This program is free software: you can redistribute it and/or modify
