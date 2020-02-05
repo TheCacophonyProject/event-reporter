@@ -275,6 +275,15 @@ func (s *EventStore) Delete(key uint64) error {
 	})
 }
 
+func (s *EventStore) DeleteKeys(keys []uint64) error {
+	for _, key := range keys {
+		if err := s.Delete(key); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // All returns all the events stored in the event store as EventTimes
 // instances. Events with identical details are grouped together into
 // a single EventTimes instance.

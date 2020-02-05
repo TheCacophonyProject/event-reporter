@@ -116,38 +116,73 @@ func sendEvents(
 		return
 	}
 
+	groupedEvents, err := getGroupEvents(store, eventKeys)
+	if err != nil {
+		log.Printf("error grouping events: %v", err)
+	}
+	log.Printf("%d event%s to send in %d group%s",
+		len(eventKeys), plural(len(eventKeys)),
+		len(groupedEvents), plural(len(groupedEvents)))
+
 	var errs []error
-	success := 0
-	for _, eventKey := range eventKeys {
-		if err := sendEvent(store, eventKey, apiClient); err != nil {
+	successEvents := 0
+	successGroup := 0
+	for description, groupedEvent := range groupedEvents {
+		if err := apiClient.ReportEvent([]byte(description), groupedEvent.times); err != nil {
 			errs = append(errs, err)
 		} else {
-			store.Delete(eventKey)
-			success++
+			if err := store.DeleteKeys(groupedEvent.keys); err != nil {
+				log.Printf("failed to delete recordings from store: %v", err)
+				return
+			}
+			successEvents += len(groupedEvent.keys)
+			successGroup++
 		}
 	}
+
 	if len(errs) > 0 {
 		log.Printf("%d error%s occurred during reporting. Most recent:", len(errs), plural(len(errs)))
 		for _, err := range last5Errs(errs) {
 			log.Printf("  %v", err)
 		}
 	}
-	if success > 0 {
-		log.Printf("%d event%s sent", success, plural(success))
+	if successEvents > 0 {
+		log.Printf("%d event%s sent in %d group%s",
+			successEvents, plural(successEvents),
+			successGroup, plural(successGroup))
 	}
 }
 
-func sendEvent(store *eventstore.EventStore, eventKey uint64, apiClient *api.CacophonyAPI) error {
-	eventBytes, err := store.Get(eventKey)
-	if err != nil {
-		return err
+type eventGroup struct {
+	times []time.Time
+	keys  []uint64
+}
+
+func getGroupEvents(store *eventstore.EventStore, eventKeys []uint64) (map[string]eventGroup, error) {
+	eventGroups := map[string]eventGroup{}
+	for _, eventKey := range eventKeys {
+		eventBytes, err := store.Get(eventKey)
+		if err != nil {
+			return nil, err
+		}
+		event := &eventstore.Event{}
+		if err := json.Unmarshal(eventBytes, event); err != nil {
+			return nil, err
+		}
+
+		description, err := json.Marshal(&eventstore.Event{
+			Description: event.Description,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		eventGroup := eventGroups[string(description)]
+		eventGroup.times = append(eventGroup.times, event.Timestamp)
+		eventGroup.keys = append(eventGroup.keys, eventKey)
+		eventGroups[string(description)] = eventGroup
 	}
-	event := &eventstore.Event{}
-	if err := json.Unmarshal(eventBytes, event); err != nil {
-		return err
-	}
-	log.Printf("sending event %v", event)
-	return apiClient.ReportEvent(eventBytes, []time.Time{event.Timestamp})
+	return eventGroups, nil
 }
 
 func last5Errs(errs []error) []error {
