@@ -1,0 +1,12 @@
+[Unit]
+Description=Cacophony Project Service Watcher
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/service-watcher
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

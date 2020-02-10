@@ -19,12 +19,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package eventstore
 
 import (
+	"encoding/json"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/boltdb/bolt"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -60,112 +63,123 @@ func (suite *Suite) TearDownTest() {
 	}
 }
 
-func (suite *Suite) TestBasics() {
-	now := Now()
-	details := []byte("foo")
-	err := suite.store.Queue(details, now)
-	suite.NoError(err)
+// TestMigrate will add data to the old bucket using the old method then try to
+// migrate the data to the new bucket. Will compare results.
+func (s *Suite) TestMigrate() {
+	err := s.store.db.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists(oldBucketName)
+		return err
+	})
+	s.NoError(err)
 
-	events, err := suite.store.All()
-	suite.NoError(err)
-	suite.Len(events, 1)
-	suite.Equal(events[0], newEventTimes(details, now))
-}
-
-func (suite *Suite) TestPersists() {
-	now := Now()
-	details := []byte("foo")
-	err := suite.store.Queue(details, now)
-	suite.NoError(err)
-	suite.store.Close()
-
-	store2 := suite.openStore()
-	events, err := store2.All()
-	suite.NoError(err)
-	suite.Len(events, 1)
-	suite.Equal(events[0], newEventTimes(details, now))
-}
-
-func (suite *Suite) TestOneEventMultipleTimes() {
-	details := []byte("foo")
-
-	now0 := Now()
-	err := suite.store.Queue(details, now0)
-	suite.NoError(err)
-
-	now1 := now0.Add(time.Second)
-	err = suite.store.Queue(details, now1)
-	suite.NoError(err)
-
-	events, err := suite.store.All()
-	suite.NoError(err)
-	suite.Len(events, 1)
-
-	suite.Equal(events[0], newEventTimes(details, now0, now1))
-}
-
-func (suite *Suite) TestMultipleEvents() {
-	// Queue event 0
-	details0 := []byte("foo")
-	now0 := Now()
-	err := suite.store.Queue(details0, now0)
-	suite.NoError(err)
-
-	// Queue event 1
-	details1 := []byte("bar")
-	now1 := now0.Add(time.Second)
-	err = suite.store.Queue(details1, now1)
-	suite.NoError(err)
-
-	// See that they're both stored.
-	events, err := suite.store.All()
-	suite.NoError(err)
-	suite.Len(events, 2)
-
-	expected := []EventTimes{
-		newEventTimes(details0, now0),
-		newEventTimes(details1, now1),
+	t := Now()
+	e := map[int64]map[string]interface{}{
+		t.Unix(): {
+			"details": map[string]interface{}{
+				"fileId": "cat1",
+				"volume": "1",
+			},
+			"type": "audiobait1",
+		},
+		t.Add(time.Second).Unix(): {
+			"details": map[string]interface{}{
+				"fileId": "bird2",
+				"volume": "2",
+			},
+			"type": "audiobait2",
+		},
 	}
-	suite.ElementsMatch(events, expected)
+	log.Printf("events to migrate %+v", e)
+	// Adding some event using the old method
+	for t, i := range e {
+		eventDetails := map[string]interface{}{
+			"description": map[string]interface{}{
+				"type":    i["type"],
+				"details": i["details"],
+			},
+		}
+		detailsJSON1, err := json.Marshal(&eventDetails)
+		s.NoError(err)
+		s.NoError(s.store.Queue(detailsJSON1, time.Unix(t, 0)))
+	}
+
+	// Close and reopen store, the migration happens when the store is opened so
+	// that is why it is closed and opened again
+	s.store.Close()
+	store2 := s.openStore()
+	keys, err := store2.GetKeys()
+	s.NoError(err)
+	// Check that each event did a proper migration
+	for _, key := range keys {
+		detailsBytes, err := store2.Get(key)
+		s.NoError(err)
+		event := &Event{}
+		s.NoError(json.Unmarshal(detailsBytes, event))
+		i := e[event.Timestamp.Unix()]
+		log.Printf("event time %d", event.Timestamp.Unix())
+		s.Equal(i["type"], event.Description.Type)       // Checkign that type was properly migrated
+		s.Equal(i["details"], event.Description.Details) // Checkign that details was properly migrated
+	}
+
+	// Check that migrated events are deleted
+	eventTimes, err := store2.All() // Old way of getting events
+	s.NoError(err)
+	s.Equal(len(eventTimes), 0)
 }
 
-func (suite *Suite) TestDiscard() {
-	// Queue event 0
-	details0 := []byte("foo")
-	now0 := Now()
-	err := suite.store.Queue(details0, now0)
-	suite.NoError(err)
+func (s *Suite) TestAddAndGet() {
+	time1 := Now()
+	time2 := Now().Add(time.Second)
+	time3 := Now().Add(2 * time.Second)
+	events := map[int64]Event{
+		time1.Unix(): Event{
+			Description: EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "type1"},
+			Timestamp:   time1,
+		},
+		time2.Unix(): Event{
+			Timestamp:   time2,
+			Description: EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "type1"},
+		},
+		time3.Unix(): Event{
+			Timestamp:   time3,
+			Description: EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "type1"},
+		},
+	}
+	// Test addign data
+	for _, e := range events {
+		s.NoError(s.store.Add(&e), "error with adding data")
+	}
 
-	// Queue event 1
-	details1 := []byte("bar")
-	now1 := now0.Add(time.Second)
-	err = suite.store.Queue(details1, now1)
-	suite.NoError(err)
+	// Test GetKeys
+	keys, err := s.store.GetKeys()
+	s.NoError(err, "error returned when getting all keys")
+	s.Equal(len(events), len(keys), "error with number of keys returned")
 
-	// See that they're both stored.
-	events, err := suite.store.All()
-	suite.NoError(err)
-	suite.Len(events, 2)
+	// Test deleting and getting data
+	deleteKey := keys[0]
+	deletedEventBytes, err := s.store.Get(deleteKey)
+	s.NoError(err, "error returned when deleting data")
+	deletedEvent := &Event{}
+	json.Unmarshal(deletedEventBytes, deletedEvent)
+	s.NoError(s.store.Delete(deleteKey))
+	delete(events, deletedEvent.Timestamp.Unix())
+	keys, err = s.store.GetKeys()
+	s.NoError(err, "error returned when gettign all keys")
 
-	// Remove one
-	err = suite.store.Discard(events[0])
-	suite.NoError(err)
-
-	eventsNow, err := suite.store.All()
-	suite.NoError(err)
-	suite.Len(eventsNow, 1)
-
-	// Remove other
-	err = suite.store.Discard(events[1])
-	suite.NoError(err)
-
-	eventsNow, err = suite.store.All()
-	suite.NoError(err)
-	suite.Len(eventsNow, 0)
-
-	// Removing an already removed item is OK.
-	err = suite.store.Discard(events[1])
-	suite.NoError(err)
+	// Read all keys and check against initial data upload to DB
+	for _, key := range keys {
+		eventBytes, err := s.store.Get(key)
+		s.NoError(err)
+		s.NotNil(eventBytes)
+		event := &Event{}
+		s.NoError(json.Unmarshal(eventBytes, event))
+		s.Equal(event.Timestamp.Unix(), events[event.Timestamp.Unix()].Timestamp.Unix())
+		s.Equal(event.Description, events[event.Timestamp.Unix()].Description)
+		delete(events, event.Timestamp.Unix()) // Delete data to check that there is no double up
+	}
+	// There should be no data missed
+	s.Equal(0, len(events))
+	log.Println(events)
 }
 
 func TestRun(t *testing.T) {
@@ -174,5 +188,5 @@ func TestRun(t *testing.T) {
 
 func Now() time.Time {
 	// Truncate necessary to get rid of monotonic clock reading.
-	return time.Now().Truncate(time.Nanosecond)
+	return time.Now().Truncate(time.Second)
 }

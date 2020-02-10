@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"time"
 
@@ -82,15 +83,15 @@ func runMain() error {
 	}
 
 	for {
-		events, err := store.All()
+		eventKeys, err := store.GetKeys()
 		if err != nil {
 			return err
 		}
 
-		sendCount := len(events)
+		sendCount := len(eventKeys)
 		if sendCount > 0 {
 			log.Printf("%d event%s to send", sendCount, plural(sendCount))
-			sendEvents(store, events, cr)
+			sendEvents(store, eventKeys, cr)
 		}
 
 		time.Sleep(args.Interval)
@@ -99,7 +100,7 @@ func runMain() error {
 
 func sendEvents(
 	store *eventstore.EventStore,
-	events []eventstore.EventTimes,
+	eventKeys []uint64,
 	cr *connrequester.ConnectionRequester,
 ) {
 	cr.Start()
@@ -115,38 +116,73 @@ func sendEvents(
 		return
 	}
 
-	var tempErrs []error
-	var permErrs []error
-	success := 0
-	for _, event := range events {
-		err := apiClient.ReportEvent(event.Details, event.Timestamps)
-		if err != nil {
-			if api.IsPermanentError(err) {
-				permErrs = append(permErrs, err)
-				store.Discard(event)
-			} else {
-				tempErrs = append(tempErrs, err)
-			}
+	groupedEvents, err := getGroupEvents(store, eventKeys)
+	if err != nil {
+		log.Printf("error grouping events: %v", err)
+	}
+	log.Printf("%d event%s to send in %d group%s",
+		len(eventKeys), plural(len(eventKeys)),
+		len(groupedEvents), plural(len(groupedEvents)))
+
+	var errs []error
+	successEvents := 0
+	successGroup := 0
+	for description, groupedEvent := range groupedEvents {
+		if err := apiClient.ReportEvent([]byte(description), groupedEvent.times); err != nil {
+			errs = append(errs, err)
 		} else {
-			store.Discard(event)
-			success++
+			if err := store.DeleteKeys(groupedEvent.keys); err != nil {
+				log.Printf("failed to delete recordings from store: %v", err)
+				return
+			}
+			successEvents += len(groupedEvent.keys)
+			successGroup++
 		}
 	}
-	logLastErrors("temporary", tempErrs)
-	logLastErrors("permanent", permErrs)
-	if success > 0 {
-		log.Printf("%d event%s sent", success, plural(success))
+
+	if len(errs) > 0 {
+		log.Printf("%d error%s occurred during reporting. Most recent:", len(errs), plural(len(errs)))
+		for _, err := range last5Errs(errs) {
+			log.Printf("  %v", err)
+		}
+	}
+	if successEvents > 0 {
+		log.Printf("%d event%s sent in %d group%s",
+			successEvents, plural(successEvents),
+			successGroup, plural(successGroup))
 	}
 }
 
-func logLastErrors(label string, errs []error) {
-	if len(errs) < 1 {
-		return
+type eventGroup struct {
+	times []time.Time
+	keys  []uint64
+}
+
+func getGroupEvents(store *eventstore.EventStore, eventKeys []uint64) (map[string]eventGroup, error) {
+	eventGroups := map[string]eventGroup{}
+	for _, eventKey := range eventKeys {
+		eventBytes, err := store.Get(eventKey)
+		if err != nil {
+			return nil, err
+		}
+		event := &eventstore.Event{}
+		if err := json.Unmarshal(eventBytes, event); err != nil {
+			return nil, err
+		}
+
+		description, err := json.Marshal(&eventstore.Event{
+			Description: event.Description,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		eventGroup := eventGroups[string(description)]
+		eventGroup.times = append(eventGroup.times, event.Timestamp)
+		eventGroup.keys = append(eventGroup.keys, eventKey)
+		eventGroups[string(description)] = eventGroup
 	}
-	log.Printf("%d %s error%s occurred during reporting. Most recent:", len(errs), label, plural(len(errs)))
-	for _, err := range last5Errs(errs) {
-		log.Printf("  %v", err)
-	}
+	return eventGroups, nil
 }
 
 func last5Errs(errs []error) []error {
