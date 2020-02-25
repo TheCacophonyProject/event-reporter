@@ -106,6 +106,14 @@ func migrate(store *EventStore) error {
 	})
 }
 
+// copyBytes gets used to copy the keys and value from boltdb to prevent
+// 'unexpected fault address' errors.
+func copyBytes(b []byte) []byte {
+	out := make([]byte, len(b))
+	copy(out, b)
+	return out
+}
+
 func getEventsToMigate(db *bolt.DB) ([]Event, *[]EventTimes, error) {
 	events := []Event{}
 	oldEventTimes := []EventTimes{}
@@ -116,12 +124,8 @@ func getEventsToMigate(db *bolt.DB) ([]Event, *[]EventTimes, error) {
 		}
 		oldData := map[string][]byte{}
 		err := oldBucket.ForEach(func(k, v []byte) error {
-			key := make([]byte, len(k))
-			value := make([]byte, len(v))
-			copy(key, k)
-			copy(value, v)
-			oldEventTimes = append(oldEventTimes, EventTimes{Details: key})
-			oldData[string(key)] = value
+			oldEventTimes = append(oldEventTimes, EventTimes{Details: copyBytes(k)})
+			oldData[string(copyBytes(k))] = copyBytes(v)
 			return nil
 		})
 		if err != nil {
