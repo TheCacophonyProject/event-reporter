@@ -88,6 +88,9 @@ func (s *Suite) TestMigrate() {
 			},
 			"type": "audiobait2",
 		},
+		t.Add(time.Second).Unix(): {
+			"type": "audiobait2",
+		},
 	}
 	log.Printf("events to migrate %+v", e)
 	// Adding some event using the old method
@@ -117,8 +120,10 @@ func (s *Suite) TestMigrate() {
 		s.NoError(json.Unmarshal(detailsBytes, event))
 		i := e[event.Timestamp.Unix()]
 		log.Printf("event time %d", event.Timestamp.Unix())
-		s.Equal(i["type"], event.Description.Type)       // Checkign that type was properly migrated
-		s.Equal(i["details"], event.Description.Details) // Checkign that details was properly migrated
+		s.Equal(i["type"], event.Description.Type) // Checkign that type was properly migrated
+		if _, ok := i["details"]; ok {             // Only compare details if origional data had details
+			s.Equal(i["details"], event.Description.Details) // Checkign that details was properly migrated
+		}
 	}
 
 	// Check that migrated events are deleted
