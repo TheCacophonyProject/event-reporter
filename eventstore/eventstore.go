@@ -96,7 +96,7 @@ func migrate(store *EventStore) error {
 		if oldBucket == nil {
 			return nil
 		}
-		for _, oldEventTime := range *oldEventTimes {
+		for _, oldEventTime := range oldEventTimes {
 			log.Printf("deleting %v", oldEventTime.Details)
 			if err := oldBucket.Delete(oldEventTime.Details); err != nil {
 				return err
@@ -106,15 +106,7 @@ func migrate(store *EventStore) error {
 	})
 }
 
-// copyBytes gets used to copy the keys and value from boltdb to prevent
-// 'unexpected fault address' errors.
-func copyBytes(b []byte) []byte {
-	out := make([]byte, len(b))
-	copy(out, b)
-	return out
-}
-
-func getEventsToMigate(db *bolt.DB) ([]Event, *[]EventTimes, error) {
+func getEventsToMigate(db *bolt.DB) ([]Event, []EventTimes, error) {
 	events := []Event{}
 	oldEventTimes := []EventTimes{}
 	err := db.Update(func(tx *bolt.Tx) error {
@@ -124,8 +116,10 @@ func getEventsToMigate(db *bolt.DB) ([]Event, *[]EventTimes, error) {
 		}
 		oldData := map[string][]byte{}
 		err := oldBucket.ForEach(func(k, v []byte) error {
-			oldEventTimes = append(oldEventTimes, EventTimes{Details: copyBytes(k)})
-			oldData[string(copyBytes(k))] = copyBytes(v)
+			// Make a copy of the keys and value from the boltdb bucket to prevent 'unexpected fault address' errors.
+			details := append([]byte(nil), k...)
+			oldEventTimes = append(oldEventTimes, EventTimes{Details: details})
+			oldData[string(details)] = append([]byte(nil), v...)
 			return nil
 		})
 		if err != nil {
@@ -168,7 +162,7 @@ func getEventsToMigate(db *bolt.DB) ([]Event, *[]EventTimes, error) {
 		}
 		return nil
 	})
-	return events, &oldEventTimes, err
+	return events, oldEventTimes, err
 }
 
 // Use Add for adding new events now. This is keept for testing migrations

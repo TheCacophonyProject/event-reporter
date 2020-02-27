@@ -120,9 +120,9 @@ func (s *Suite) TestMigrate() {
 		s.NoError(json.Unmarshal(detailsBytes, event))
 		i := e[event.Timestamp.Unix()]
 		log.Printf("event time %d", event.Timestamp.Unix())
-		s.Equal(i["type"], event.Description.Type) // Checkign that type was properly migrated
+		s.Equal(i["type"], event.Description.Type) // Checking that type was properly migrated
 		if _, ok := i["details"]; ok {             // Only compare details if origional data had details
-			s.Equal(i["details"], event.Description.Details) // Checkign that details was properly migrated
+			s.Equal(i["details"], event.Description.Details) // Checking that details was properly migrated
 		}
 	}
 
