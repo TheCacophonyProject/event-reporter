@@ -64,14 +64,14 @@ func Open(fileName string) (*EventStore, error) {
 		return nil, fmt.Errorf("creating bucket: %v", err)
 	}
 
-	store := EventStore{db: db}
+	store := &EventStore{db: db}
 	if err := migrate(store); err != nil {
 		return nil, err
 	}
-	return &store, nil
+	return store, nil
 }
 
-func migrate(store EventStore) error {
+func migrate(store *EventStore) error {
 	log.Println("getting events to migrate from old bucket")
 	eventsToMigrate, oldEventTimes, err := getEventsToMigate(store.db)
 	if err != nil {
@@ -116,8 +116,10 @@ func getEventsToMigate(db *bolt.DB) ([]Event, []EventTimes, error) {
 		}
 		oldData := map[string][]byte{}
 		err := oldBucket.ForEach(func(k, v []byte) error {
-			oldEventTimes = append(oldEventTimes, EventTimes{Details: k})
-			oldData[string(k)] = v
+			// Make a copy of the keys and value from the boltdb bucket to prevent 'unexpected fault address' errors.
+			details := append([]byte(nil), k...)
+			oldEventTimes = append(oldEventTimes, EventTimes{Details: details})
+			oldData[string(details)] = append([]byte(nil), v...)
 			return nil
 		})
 		if err != nil {
@@ -133,10 +135,7 @@ func getEventsToMigate(db *bolt.DB) ([]Event, []EventTimes, error) {
 				return err
 			}
 
-			eventDetails, ok := event.Description["details"].(map[string]interface{})
-			if !ok {
-				return errors.New("could not parse event details")
-			}
+			eventDetails, _ := event.Description["details"].(map[string]interface{})
 			eventType, ok := event.Description["type"].(string)
 			if !ok {
 				return errors.New("failed to parse old events")
@@ -212,6 +211,9 @@ func (s *EventStore) Add(event *Event) error {
 	}
 	return s.db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(idDataBucketName)
+		if bucket == nil {
+			return noBucketErr(idDataBucketName)
+		}
 		nextSeq, err := bucket.NextSequence()
 		if err != nil {
 			return err
