@@ -1,0 +1,10 @@
+[Unit]
+Description=Report the version of cacophony software running
+After=multi-user.target network.target event-reporter.service
+
+[Service]
+ExecStart=/usr/bin/version-reporter
+Type=oneshot
+
+[Install]
+WantedBy=multi-user.target

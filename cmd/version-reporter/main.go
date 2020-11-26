@@ -48,8 +48,18 @@ func runMain() error {
 		Type:      "versionData",
 		Details:   packageMpedData,
 	}
-	if err := eventclient.AddEvent(event); err != nil {
-		return err
+
+	for i := 3; i > 0; i-- {
+		err := eventclient.AddEvent(event)
+		if err == nil {
+			break
+		}
+		if i == 1 {
+			log.Println(err)
+			break
+		}
+		log.Println("failed to log event. Will retry in 5 seconds")
+		time.Sleep(5 * time.Second)
 	}
 	log.Println("added verionData event")
 
