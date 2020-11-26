@@ -19,11 +19,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
+
+	"github.com/TheCacophonyProject/event-reporter/eventclient"
 )
 
 func main() {
@@ -40,17 +42,22 @@ func runMain() error {
 	if err != nil {
 		return err
 	}
-	packageJSONData, err := json.Marshal(packageMpedData)
-	if err != nil {
+
+	event := eventclient.Event{
+		Timestamp: time.Now(),
+		Type:      "versionData",
+		Details:   packageMpedData,
+	}
+	if err := eventclient.AddEvent(event); err != nil {
 		return err
 	}
-	log.Println(string(packageJSONData))
+	log.Println("added verionData event")
 
 	return nil
 }
 
 // Return info on the packages that are currently installed on the device.
-func getInstalledPackages() (map[string]string, error) {
+func getInstalledPackages() (map[string]interface{}, error) {
 
 	if runtime.GOOS == "windows" {
 		return nil, nil
@@ -66,7 +73,7 @@ func getInstalledPackages() (map[string]string, error) {
 	}
 	packagesData := string(out)
 	// Want to separate this into separate fields so that can display in a table in HTML
-	data := map[string]string{}
+	data := map[string]interface{}{}
 	rows := strings.Split(packagesData, "\n")
 	for _, row := range rows {
 		// We only want packages related to cacophony.
