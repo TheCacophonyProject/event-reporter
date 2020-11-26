@@ -30,13 +30,24 @@ builds:
     - "7"
   ldflags: -s -w -X main.version={{.Version}}
 
+- id: version-reporter
+  binary: version-reporter
+  main: ./cmd/version-reporter
+  goos:
+    - linux
+  goarch:
+    - arm
+  goarm:
+    - "7"
+  ldflags: -s -w -X main.version={{.Version}}
+
 nfpms:
 - vendor: The Cacophony Project
   homepage: http://cacophony.org.nz/
   maintainer: Cacophony Developers <coredev@cacophony.org.nz>
   description: Queue and report events to the Cacophony Project API
   license: GPL v3.0
-  name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
+  file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
   formats:
     - deb
   bindir: /usr/bin
