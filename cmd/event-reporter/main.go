@@ -77,7 +77,9 @@ func runMain() error {
 
 	cr := connrequester.NewConnectionRequester()
 
-	err = StartService(store)
+	uploadEventsChan := make(chan bool)
+
+	err = StartService(store, uploadEventsChan)
 	if err != nil {
 		return err
 	}
@@ -94,7 +96,11 @@ func runMain() error {
 			sendEvents(store, eventKeys, cr)
 		}
 
-		time.Sleep(args.Interval)
+		select {
+		case <-uploadEventsChan:
+			log.Println("events upload requested")
+		case <-time.After(args.Interval):
+		}
 	}
 }
 
