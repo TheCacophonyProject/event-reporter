@@ -52,6 +52,10 @@ func runMain() error {
 	for i := 3; i > 0; i-- {
 		err := eventclient.AddEvent(event)
 		if err == nil {
+			log.Println("added verionData event")
+			if err := eventclient.UploadEvents(); err != nil {
+				return err
+			}
 			break
 		}
 		if i == 1 {
@@ -61,7 +65,6 @@ func runMain() error {
 		log.Println("failed to log event. Will retry in 5 seconds")
 		time.Sleep(5 * time.Second)
 	}
-	log.Println("added verionData event")
 
 	return nil
 }
