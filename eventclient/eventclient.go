@@ -90,6 +90,12 @@ func DeleteEvent(key uint64) error {
 	return err
 }
 
+// UploadEvents wil reuqest for the events to be uploaded now
+func UploadEvents() error {
+	_, err := eventsDbusCall("org.cacophony.Events.UploadEvents")
+	return err
+}
+
 func eventsDbusCall(method string, params ...interface{}) ([]interface{}, error) {
 	conn, err := dbus.SystemBus()
 	if err != nil {

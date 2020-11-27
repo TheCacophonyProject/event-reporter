@@ -35,7 +35,7 @@ const dbusPath = "/org/cacophony/Events"
 // StartService exposes an instance of `service` (see below) on the
 // system DBUS. This allows other processes to queue events for
 // sending.
-func StartService(store *eventstore.EventStore) error {
+func StartService(store *eventstore.EventStore, uploadEventsChan chan bool) error {
 	conn, err := dbus.SystemBus()
 	if err != nil {
 		return err
@@ -49,7 +49,8 @@ func StartService(store *eventstore.EventStore) error {
 	}
 
 	svc := &service{
-		store: store,
+		store:            store,
+		uploadEventsChan: uploadEventsChan,
 	}
 	conn.Export(svc, dbusPath, dbusName)
 	conn.Export(genIntrospectable(svc), dbusPath, "org.freedesktop.DBus.Introspectable")
@@ -67,7 +68,14 @@ func genIntrospectable(v interface{}) introspect.Introspectable {
 }
 
 type service struct {
-	store *eventstore.EventStore
+	store            *eventstore.EventStore
+	uploadEventsChan chan bool
+}
+
+// UploadEvents requests for events to be uploaded now.
+func (svc *service) UploadEvents() *dbus.Error {
+	svc.uploadEventsChan <- true
+	return nil
 }
 
 // Queue is deprecated. Use Add from now on
