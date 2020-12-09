@@ -1,6 +1,6 @@
 module github.com/TheCacophonyProject/event-reporter/v3
 
-go 1.12
+go 1.15
 
 require (
 	github.com/TheCacophonyProject/go-api v0.0.0-20190923033957-174cea2ac81c
