@@ -26,7 +26,7 @@ import (
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"
 
-	"github.com/TheCacophonyProject/event-reporter/eventstore"
+	"github.com/TheCacophonyProject/event-reporter/v3/eventstore"
 )
 
 const dbusName = "org.cacophony.Events"

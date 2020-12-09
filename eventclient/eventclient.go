@@ -25,7 +25,7 @@ import (
 
 	"github.com/godbus/dbus"
 
-	"github.com/TheCacophonyProject/event-reporter/eventstore"
+	"github.com/TheCacophonyProject/event-reporter/v3/eventstore"
 )
 
 type Event struct {

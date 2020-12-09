@@ -1,4 +1,4 @@
-module github.com/TheCacophonyProject/event-reporter
+module github.com/TheCacophonyProject/event-reporter/v3
 
 go 1.12
 

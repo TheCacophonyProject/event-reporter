@@ -23,7 +23,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/TheCacophonyProject/event-reporter/eventstore"
+	"github.com/TheCacophonyProject/event-reporter/v3/eventstore"
 	"github.com/TheCacophonyProject/modemd/connrequester"
 	arg "github.com/alexflint/go-arg"
 

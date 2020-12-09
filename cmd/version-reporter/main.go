@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TheCacophonyProject/event-reporter/eventclient"
+	"github.com/TheCacophonyProject/event-reporter/v3/eventclient"
 )
 
 func main() {

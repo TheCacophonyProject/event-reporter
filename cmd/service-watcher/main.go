@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TheCacophonyProject/event-reporter/eventclient"
+	"github.com/TheCacophonyProject/event-reporter/v3/eventclient"
 	systemdbus "github.com/coreos/go-systemd/dbus"
 )
 
