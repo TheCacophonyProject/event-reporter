@@ -10,5 +10,5 @@ require (
 	github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e
 	github.com/godbus/dbus v0.0.0-20181101234600-2ff6f7ffd60f
 	github.com/stretchr/testify v1.3.0
-	golang.org/x/sys v0.0.0-20190318195719-6c81ef8f67ca // indirect
+	golang.org/x/sys v0.0.0-20190412213103-97732733099d // indirect
 )
