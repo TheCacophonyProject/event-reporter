@@ -20,9 +20,14 @@ package main
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"log"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/TheCacophonyProject/event-reporter/v3/eventclient"
 	"github.com/TheCacophonyProject/event-reporter/v3/eventstore"
 	"github.com/TheCacophonyProject/modemd/connrequester"
 	arg "github.com/alexflint/go-arg"
@@ -31,9 +36,10 @@ import (
 )
 
 const (
-	connTimeout       = time.Minute * 2
-	connRetryInterval = time.Minute * 10
-	connMaxRetries    = 3
+	connTimeout        = time.Minute * 2
+	connRetryInterval  = time.Minute * 10
+	connMaxRetries     = 3
+	poweredOffTimeFile = "/etc/cacophony/powered-off-time"
 )
 
 var version = "No version provided"
@@ -83,6 +89,9 @@ func runMain() error {
 	if err != nil {
 		return err
 	}
+
+	//If powered off time was saved make a powered off event
+	makePowerOffEvent()
 
 	for {
 		eventKeys, err := store.GetKeys()
@@ -204,4 +213,21 @@ func plural(n int) string {
 		return ""
 	}
 	return "s"
+}
+
+func makePowerOffEvent() {
+	outBytes, err := ioutil.ReadFile(poweredOffTimeFile)
+	if err != nil {
+		return
+	}
+	nanoTime, err := strconv.ParseInt(strings.TrimSpace(string(outBytes)), 10, 64)
+	if err != nil {
+		log.Printf("failed to read power off time: %v", err)
+		return
+	}
+	eventclient.AddEvent(eventclient.Event{
+		Timestamp: time.Unix(0, nanoTime),
+		Type:      "powered-off",
+	})
+	os.Remove(poweredOffTimeFile)
 }

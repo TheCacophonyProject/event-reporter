@@ -1,0 +1,11 @@
+[Unit]
+Description=Note down time that the system powered off
+DefaultDependencies=no
+Before=shutdown.target reboot.target halt.target
+
+[Service]
+ExecStart=/usr/bin/save-powered-off-time
+Type=oneshot
+
+[Install]
+WantedBy=halt.target reboot.target shutdown.target

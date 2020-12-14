@@ -1,0 +1,10 @@
+[Unit]
+Description=Make a power on event
+After=multi-user.target network.target event-reporter.service
+
+[Service]
+ExecStart=/usr/bin/report-event rpi-power-on
+Type=oneshot
+
+[Install]
+WantedBy=multi-user.target

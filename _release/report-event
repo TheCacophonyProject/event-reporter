@@ -1,0 +1,53 @@
+#!/bin/bash
+
+
+type=''
+data='{}'
+timeNano=$(date +%s%N)
+
+
+usage="Usage: report-event [event-type] [details-json] [timeNano]\n
+\tevent-type:   \tType of event to upload. Required\n
+\tdetails-json: \tJSON of event details. Default to '{}'\n
+\ttimeNano:     \tUnix timestamp in nanoseconds. Defaults to now
+"
+
+if (( $# >= 1 )) ; then
+    type=$1
+else 
+    echo "Need at least event type"
+    echo -e $usage
+    exit 1
+fi
+if (( $# >= 2 )) ; then
+    data=$2
+fi
+if (( $# >= 3 )) ; then
+    timeNano=$3
+fi
+if (( $# >= 4 )) ; then
+    echo "Too many commands" 
+    echo -e $usage
+    exit 1
+fi
+
+
+echo "type: " $type
+echo "data: " $data
+echo "TimeNano:" $timeNano
+
+retrys=3
+while (( --retrys >= 0 )) ; do
+    if /usr/bin/dbus-send --system --type=method_call --print-reply --dest=org.cacophony.Events /org/cacophony/Events org.cacophony.Events.Add string:$data string:$type int64:$timeNano ; then
+        echo "Saved event"
+        break
+    elif (( retrys > 0 )) ; then
+        echo "Failed to save event, retry $retrys more times"
+        sleep 10s
+    else
+        echo "Failed to save event"
+        break;
+    fi
+done
+
+
