@@ -204,7 +204,7 @@ type EventDescription struct {
 }
 
 func (s *EventStore) Add(event *Event) error {
-	log.Println("adding new event")
+	log.Printf("adding new %s event\n", event.Description.Type)
 	data, err := json.Marshal(event)
 	if err != nil {
 		return err

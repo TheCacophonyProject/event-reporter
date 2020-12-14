@@ -55,6 +55,10 @@ nfpms:
     "_release/event-reporter.service": "/etc/systemd/system/event-reporter.service"
     "_release/service-watcher.service": "/etc/systemd/system/service-watcher.service"
     "_release/version-reporter.service": "/etc/systemd/system/version-reporter.service"
+    "_release/rpi-power-on.service": "/etc/systemd/system/rpi-power-on.service"
+    "_release/rpi-power-off.service": "/etc/systemd/system/rpi-power-off.service"
+    "_release/report-event": "/usr/bin/report-event"
+    "_release/save-powered-off-time": "/usr/bin/save-powered-off-time"
     "_release/org.cacophony.Events.conf": "/etc/dbus-1/system.d/org.cacophony.Events.conf"
   scripts:
     postinstall: "_release/postinstall.sh"

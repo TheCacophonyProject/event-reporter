@@ -1,0 +1,2 @@
+#!/bin/bash
+/bin/date +%s%N > /etc/cacophony/powered-off-time
