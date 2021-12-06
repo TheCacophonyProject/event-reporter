@@ -83,7 +83,7 @@ func runMain() error {
 
 	cr := connrequester.NewConnectionRequester()
 
-	uploadEventsChan := make(chan bool)
+	uploadEventsChan := make(chan bool, 2)
 
 	err = StartService(store, uploadEventsChan)
 	if err != nil {

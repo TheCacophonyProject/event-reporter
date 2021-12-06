@@ -21,6 +21,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/godbus/dbus"
@@ -74,7 +75,14 @@ type service struct {
 
 // UploadEvents requests for events to be uploaded now.
 func (svc *service) UploadEvents() *dbus.Error {
-	svc.uploadEventsChan <- true
+	go func() {
+		select {
+		case svc.uploadEventsChan <- true:
+			log.Println("UploadEvents Sent")
+		case <-time.After(2 * time.Second):
+			log.Println("Already uploading")
+		}
+	}()
 	return nil
 }
 
