@@ -9,7 +9,7 @@ require (
 	github.com/boltdb/bolt v1.3.1
 	github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e
 	github.com/godbus/dbus v0.0.0-20181101234600-2ff6f7ffd60f
-	github.com/gw7nvw/lora_events v0.0.0-20220625025241-1710b0a791c7 // indirect
+	github.com/gw7nvw/lora_events v0.0.0-20220626071130-43a20eef9d2e // indirect
 	github.com/stretchr/testify v1.7.0
 )
 

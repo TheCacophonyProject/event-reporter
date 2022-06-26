@@ -176,17 +176,28 @@ func sendEventsByLora(
 	eventKeys []uint64,
         loraConn ConnDetails,
 ) {
-        requestId, err := loraConn.Start()
+        var status int16
+        var requestId int16
+        var err error
+        status, err = loraConn.GetStatus()
         if err!=nil {
                 panic(err)
         }
-        log.Println("Started connection %d",loraConn.Status)
+        if status==3 {
+                log.Println("LORA already connected")
+        } else {
+                requestId, err = loraConn.Start()
+                if err!=nil {
+                        panic(err)
+                }
+                log.Println("Started connection %d",loraConn.Status)
 
-        err = loraConn.WaitUntilUp(requestId, 60)
-        if err!=nil {
-                panic(err)
+                err = loraConn.WaitUntilUp(requestId, 60)
+                if err!=nil {
+                        panic(err)
+                }
+                log.Println("Now up %d",loraConn.Status)
         }
-        log.Println("Now up %d",loraConn.Status)
 
 	groupedEvents, err := getGroupEvents(store, eventKeys)
 	if err != nil {
