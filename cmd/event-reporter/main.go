@@ -190,13 +190,13 @@ func sendEventsByLora(
                 if err!=nil {
                         panic(err)
                 }
-                log.Println("Started connection %d",loraConn.Status)
+                log.Printf("Started connection %d",loraConn.Status)
 
                 err = loraConn.WaitUntilUp(requestId, 60)
                 if err!=nil {
                         panic(err)
                 }
-                log.Println("Now up %d",loraConn.Status)
+                log.Printf("Now up %d",loraConn.Status)
         }
 
 	groupedEvents, err := getGroupEvents(store, eventKeys)
