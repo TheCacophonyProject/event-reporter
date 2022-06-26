@@ -223,6 +223,10 @@ github.com/grpc-ecosystem/go-grpc-middleware v1.0.0/go.mod h1:FiyG127CGDf3tlThmg
 github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0/go.mod h1:8NvIoxWQoOIhqOTXgfV/d3M/q6VIi02HzZEHgUlZvzk=
 github.com/grpc-ecosystem/grpc-gateway v1.9.0/go.mod h1:vNeuVxBJEsws4ogUvrchl83t/GYV9WGTSLVdBhOQFDY=
 github.com/grpc-ecosystem/grpc-gateway v1.16.0/go.mod h1:BDjrQk3hbvj6Nolgz8mAMFbcEtjT1g+wF4CSlocrBnw=
+github.com/guelfey/go.dbus v0.0.0-20220105183920-7084538c37af h1:hq8nXI7SSuCMOYxaT/NB+4cHphOmGPT4cQbSahL0tjM=
+github.com/guelfey/go.dbus v0.0.0-20220105183920-7084538c37af/go.mod h1:0CNX5Cvi77WEH8llpfZ/ieuqyceb1cnO5//b5zzsnF8=
+github.com/gw7nvw/lora_events v0.0.0-20220625025241-1710b0a791c7 h1:zZk8tim/yWhHY3CEiacGknlcxQ8fXD9SGhbrFnUFcG0=
+github.com/gw7nvw/lora_events v0.0.0-20220625025241-1710b0a791c7/go.mod h1:4N2KaXBiv4gev+j7FSd7exKIv1r1F9XtxctXdC+3DN8=
 github.com/hashicorp/consul/api v1.10.1/go.mod h1:XjsvQN+RJGWI2TWy1/kqaE16HrR2J/FWgkYjdZQsX9M=
 github.com/hashicorp/consul/sdk v0.8.0/go.mod h1:GBvyrGALthsZObzUGsfgHZQDXjg4lOjagTIwIR1vPms=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=

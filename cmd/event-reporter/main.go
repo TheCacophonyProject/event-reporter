@@ -30,6 +30,7 @@ import (
 	"github.com/TheCacophonyProject/event-reporter/v3/eventclient"
 	"github.com/TheCacophonyProject/event-reporter/v3/eventstore"
 	"github.com/TheCacophonyProject/modemd/connrequester"
+        . "github.com/gw7nvw/lora_events"
 	arg "github.com/alexflint/go-arg"
 
 	"github.com/TheCacophonyProject/go-api"
@@ -81,7 +82,8 @@ func runMain() error {
 	}
 	defer store.Close()
 
-	cr := connrequester.NewConnectionRequester()
+//	cr := connrequester.NewConnectionRequester()
+        loraConn := NewLoraConnection()
 
 	uploadEventsChan := make(chan bool)
 
@@ -102,7 +104,8 @@ func runMain() error {
 		sendCount := len(eventKeys)
 		if sendCount > 0 {
 			log.Printf("%d event%s to send", sendCount, plural(sendCount))
-			sendEvents(store, eventKeys, cr)
+//			sendEventsByApi(store, eventKeys, cr)
+			sendEventsByLora(store, eventKeys, loraConn)
 		}
 
 		select {
@@ -113,7 +116,7 @@ func runMain() error {
 	}
 }
 
-func sendEvents(
+func sendEventsByApi(
 	store *eventstore.EventStore,
 	eventKeys []uint64,
 	cr *connrequester.ConnectionRequester,
@@ -168,6 +171,88 @@ func sendEvents(
 	}
 }
 
+func sendEventsByLora(
+	store *eventstore.EventStore,
+	eventKeys []uint64,
+        loraConn ConnDetails,
+) {
+        requestId, err := loraConn.Start()
+        if err!=nil {
+                panic(err)
+        }
+        log.Println("Started connection %d",loraConn.Status)
+
+        err = loraConn.WaitUntilUp(requestId, 60)
+        if err!=nil {
+                panic(err)
+        }
+        log.Println("Now up %d",loraConn.Status)
+
+	groupedEvents, err := getGroupEvents(store, eventKeys)
+	if err != nil {
+		log.Printf("error grouping events: %v", err)
+	}
+	log.Printf("%d event%s to send in %d group%s",
+		len(eventKeys), plural(len(eventKeys)),
+		len(groupedEvents), plural(len(groupedEvents)))
+
+	var errs []error
+	successEvents := 0
+	successGroup := 0
+	for description, groupedEvent := range groupedEvents {
+                event := &eventstore.Event{}
+                if err := json.Unmarshal([]byte(description), event); err != nil {
+                        return
+                }
+
+                details := event.Description.Details
+                etype := event.Description.Type
+
+                detailsJson, err := json.Marshal(details)
+                timestamps, err := json.Marshal(groupedEvent.times)
+
+                log.Println(`{"t": `+string(timestamps)+`, "e": "`+string(etype)+`", "d": `+string(detailsJson)+`}`)
+                requestId, err = loraConn.ReportEvent(`{"t": `+string(timestamps)+`, "e": "`+string(etype)+`", "d": `+string(detailsJson)+`}`, groupedEvent.times)
+
+                if err!=nil {
+                  log.Printf("Error reporting event: %v",err)
+                  return
+                }
+                log.Println("Report event")
+
+                err = loraConn.WaitUntilComplete(requestId, 600)
+                if err!=nil {
+                  log.Printf("Error waiting for confirmation: %v",err)
+                  return
+                }
+                log.Println("Complete")
+
+	        if err != nil {
+			errs = append(errs, err)
+		} else {
+			if err := store.DeleteKeys(groupedEvent.keys); err != nil {
+				log.Printf("failed to delete recordings from store: %v", err)
+				return
+			}
+			successEvents += len(groupedEvent.keys)
+			successGroup++
+		}
+	}
+
+	if len(errs) > 0 {
+		log.Printf("%d error%s occurred during reporting. Most recent:", len(errs), plural(len(errs)))
+		for _, err := range last5Errs(errs) {
+			log.Printf("  %v", err)
+		}
+	}
+	if successEvents > 0 {
+		log.Printf("%d event%s sent in %d group%s",
+			successEvents, plural(successEvents),
+			successGroup, plural(successGroup))
+	}
+}
+
+
 type eventGroup struct {
 	times []time.Time
 	keys  []uint64
@@ -199,6 +284,7 @@ func getGroupEvents(store *eventstore.EventStore, eventKeys []uint64) (map[strin
 	}
 	return eventGroups, nil
 }
+
 
 func last5Errs(errs []error) []error {
 	i := len(errs) - 5
