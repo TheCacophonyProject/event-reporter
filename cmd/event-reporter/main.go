@@ -129,7 +129,7 @@ func sendEvents(
                 success = sendEventsByApi(store, eventKeys, cr)
         //Otherwise, try LoRa first
         } else {
-                log.println("WIFI is down, try sending events over IP")
+                log.println("WIFI is down, try sending events over LoRa")
                 success = sendEventsByLora(store, eventKeys, loraConn)
                 //Then fall-back to IP over modem
                 if success!=true {
