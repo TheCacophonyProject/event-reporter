@@ -92,6 +92,9 @@ func runMain() error {
 		return err
 	}
 
+        //Give interfaces time to come up, if present - TODO: find a better way than an arbitrary sleep
+        time.Sleep(30 * time.Second)
+
 	//If powered off time was saved make a powered off event
 	makePowerOffEvent()
 
