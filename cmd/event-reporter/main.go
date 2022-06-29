@@ -30,7 +30,7 @@ import (
 	"github.com/TheCacophonyProject/event-reporter/v3/eventclient"
 	"github.com/TheCacophonyProject/event-reporter/v3/eventstore"
 	"github.com/TheCacophonyProject/modemd/connrequester"
-        . "github.com/gw7nvw/lora_events"
+        . "github.com/TheCacophonyProject/lora_events"
 	arg "github.com/alexflint/go-arg"
 
 	"github.com/TheCacophonyProject/go-api"
@@ -82,7 +82,7 @@ func runMain() error {
 	}
 	defer store.Close()
 
-//	cr := connrequester.NewConnectionRequester()
+	cr := connrequester.NewConnectionRequester()
         loraConn := NewLoraConnection()
 
 	uploadEventsChan := make(chan bool)
@@ -104,8 +104,7 @@ func runMain() error {
 		sendCount := len(eventKeys)
 		if sendCount > 0 {
 			log.Printf("%d event%s to send", sendCount, plural(sendCount))
-//			sendEventsByApi(store, eventKeys, cr)
-			sendEventsByLora(store, eventKeys, loraConn)
+			sendEvents(store, eventKeys, cr, loraConn)
 		}
 
 		select {
@@ -116,22 +115,46 @@ func runMain() error {
 	}
 }
 
+func sendEvents(
+        store *eventstore.EventStore,
+        eventKeys []uint64,
+        cr *connrequester.ConnectionRequester,
+        loraConn ConnDetails,
+) {
+        success := false
+
+        //If WIFI is up, use IP to send events
+        if connrequester.CheckWifiConnection() {
+                log.println("WIFI is up, sending events over IP")
+                success = sendEventsByApi(store, eventKeys, cr)
+        //Otherwise, try LoRa first
+        } else {
+                log.println("WIFI is down, try sending events over IP")
+                success = sendEventsByLora(store, eventKeys, loraConn)
+                //Then fall-back to IP over modem
+                if success!=true {
+                        log.println("WIFI and LoRa are down, try sending events over modem")
+                        success = sendEventsByApi(store, eventKeys, cr)
+                }
+        }
+}
+
 func sendEventsByApi(
 	store *eventstore.EventStore,
 	eventKeys []uint64,
 	cr *connrequester.ConnectionRequester,
-) {
+) bool {
 	cr.Start()
 	defer cr.Stop()
 	if err := cr.WaitUntilUpLoop(connTimeout, connRetryInterval, connMaxRetries); err != nil {
 		log.Println("unable to get an internet connection. Not reporting events")
-		return
+		return false
 	}
 
 	apiClient, err := api.New()
 	if err != nil {
 		log.Printf("API connection failed: %v", err)
-		return
+		return false
 	}
 
 	groupedEvents, err := getGroupEvents(store, eventKeys)
@@ -151,7 +174,7 @@ func sendEventsByApi(
 		} else {
 			if err := store.DeleteKeys(groupedEvent.keys); err != nil {
 				log.Printf("failed to delete recordings from store: %v", err)
-				return
+				return false
 			}
 			successEvents += len(groupedEvent.keys)
 			successGroup++
@@ -168,33 +191,43 @@ func sendEventsByApi(
 		log.Printf("%d event%s sent in %d group%s",
 			successEvents, plural(successEvents),
 			successGroup, plural(successGroup))
+                return true
 	}
+        return false
 }
 
 func sendEventsByLora(
 	store *eventstore.EventStore,
 	eventKeys []uint64,
         loraConn ConnDetails,
-) {
+) bool {
         var status int16
         var requestId int16
         var err error
         status, err = loraConn.GetStatus()
         if err!=nil {
-                panic(err)
+                log.Printf("Error connecting to LORA modem: %v", err)
+        }
+        if status==0 {
+                log.Println("LoRA service not available")
+                return false
         }
         if status==3 {
                 log.Println("LORA already connected")
         } else {
-                requestId, err = loraConn.Start()
+                requestId, err = loraConn.Connect()
                 if err!=nil {
-                        panic(err)
+                        log.Printf("Error in LoRaWAN JOIN / REGISTER : %v", err)
+                        return false
                 }
                 log.Printf("Started connection %d",loraConn.Status)
 
+                //60 seconds - make this a configurable constant
                 err = loraConn.WaitUntilUp(requestId, 60)
                 if err!=nil {
-                        panic(err)
+                        log.Printf("Error in checking LoRaWAN JOIN / REGISTER status: %v", err)
+                        return false
+
                 }
                 log.Printf("Now up %d",loraConn.Status)
         }
@@ -213,7 +246,7 @@ func sendEventsByLora(
 	for description, groupedEvent := range groupedEvents {
                 event := &eventstore.Event{}
                 if err := json.Unmarshal([]byte(description), event); err != nil {
-                        return
+                        return false
                 }
 
                 details := event.Description.Details
@@ -223,18 +256,20 @@ func sendEventsByLora(
                 timestamps, err := json.Marshal(groupedEvent.times)
 
                 log.Println(`{"t": `+string(timestamps)+`, "e": "`+string(etype)+`", "d": `+string(detailsJson)+`}`)
-                requestId, err = loraConn.ReportEvent(`{"t": `+string(timestamps)+`, "e": "`+string(etype)+`", "d": `+string(detailsJson)+`}`, groupedEvent.times)
+                requestId, err = loraConn.Message(`{"t": `+string(timestamps)+`, "e": "`+string(etype)+`", "d": `+string(detailsJson)+`}`, groupedEvent.times)
 
                 if err!=nil {
-                  log.Printf("Error reporting event: %v",err)
-                  return
+                  log.Printf("Error reporting event via LoRaWAN: %v",err)
+                  return false
                 }
                 log.Println("Report event")
 
+                // 600 seconds (15 message-parts (max) at 40 secs each) 
+                // which is very long for 1-part message, consider a timeout proportional to length?
                 err = loraConn.WaitUntilComplete(requestId, 600)
                 if err!=nil {
                   log.Printf("Error waiting for confirmation: %v",err)
-                  return
+                  return false
                 }
                 log.Println("Complete")
 
@@ -242,12 +277,13 @@ func sendEventsByLora(
 			errs = append(errs, err)
 		} else {
 			if err := store.DeleteKeys(groupedEvent.keys); err != nil {
-				log.Printf("failed to delete recordings from store: %v", err)
-				return
+				log.Printf("Failed to delete events from store: %v", err)
+				return false
 			}
 			successEvents += len(groupedEvent.keys)
 			successGroup++
 		}
+
 	}
 
 	if len(errs) > 0 {
@@ -260,7 +296,10 @@ func sendEventsByLora(
 		log.Printf("%d event%s sent in %d group%s",
 			successEvents, plural(successEvents),
 			successGroup, plural(successGroup))
+                return true
 	}
+
+        return false
 }
 
 

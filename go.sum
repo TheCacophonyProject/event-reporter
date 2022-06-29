@@ -64,6 +64,9 @@ github.com/TheCacophonyProject/lepton3 v0.0.0-20200213011619-1934a9300bd3/go.mod
 github.com/TheCacophonyProject/lepton3 v0.0.0-20210324024142-003e5546e30f/go.mod h1:+FTQKx63hdEbuTe/nxNv9TQ2EWqdlzMZx7UNLGCX9SE=
 github.com/TheCacophonyProject/lepton3 v0.0.0-20211005194419-22311c15d6ee h1:whilFI36xLtsd7p6blNKH3LKdU/g1gZv1SClUPJrpgs=
 github.com/TheCacophonyProject/lepton3 v0.0.0-20211005194419-22311c15d6ee/go.mod h1:+FTQKx63hdEbuTe/nxNv9TQ2EWqdlzMZx7UNLGCX9SE=
+github.com/TheCacophonyProject/lora_events v0.0.0-20220628234053-57108fd3565b h1:I5YGz580wD+xLjyKnby+3Gq6oHZSr+38mg1Ma4Jnqwc=
+github.com/TheCacophonyProject/lora_events v0.0.0-20220628235236-ee6d3e7ef9c8 h1:f6uURZ7GzRhwgofWmjt9O4H7rXAMWfPP7gE3ttnubJk=
+github.com/TheCacophonyProject/lora_events v0.0.0-20220628235236-ee6d3e7ef9c8/go.mod h1:6mHmnvODMDtMVYGdmXWju8A1lHi20SWTxQyLPBkOvxY=
 github.com/TheCacophonyProject/modemd v0.0.0-20190605010435-ae5b0f2eb760 h1:DIImejLRk/+sdvtUdAOE9bF984eiL7kuj5XJVu4K060=
 github.com/TheCacophonyProject/modemd v0.0.0-20190605010435-ae5b0f2eb760/go.mod h1:bfwJ/WcvDY9XtHKC5tcRfVrU8RWaW8DLYAAUfsrJr/4=
 github.com/TheCacophonyProject/periph v2.1.1-0.20200615222341-6834cd5be8c1+incompatible h1:0pEn1FoMTgOZR3EkqOTiqd0++jOS/jWlGrbvOHK0/KM=
