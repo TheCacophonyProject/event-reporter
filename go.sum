@@ -64,7 +64,6 @@ github.com/TheCacophonyProject/lepton3 v0.0.0-20200213011619-1934a9300bd3/go.mod
 github.com/TheCacophonyProject/lepton3 v0.0.0-20210324024142-003e5546e30f/go.mod h1:+FTQKx63hdEbuTe/nxNv9TQ2EWqdlzMZx7UNLGCX9SE=
 github.com/TheCacophonyProject/lepton3 v0.0.0-20211005194419-22311c15d6ee h1:whilFI36xLtsd7p6blNKH3LKdU/g1gZv1SClUPJrpgs=
 github.com/TheCacophonyProject/lepton3 v0.0.0-20211005194419-22311c15d6ee/go.mod h1:+FTQKx63hdEbuTe/nxNv9TQ2EWqdlzMZx7UNLGCX9SE=
-github.com/TheCacophonyProject/lora_events v0.0.0-20220628234053-57108fd3565b h1:I5YGz580wD+xLjyKnby+3Gq6oHZSr+38mg1Ma4Jnqwc=
 github.com/TheCacophonyProject/lora_events v0.0.0-20220628235236-ee6d3e7ef9c8 h1:f6uURZ7GzRhwgofWmjt9O4H7rXAMWfPP7gE3ttnubJk=
 github.com/TheCacophonyProject/lora_events v0.0.0-20220628235236-ee6d3e7ef9c8/go.mod h1:6mHmnvODMDtMVYGdmXWju8A1lHi20SWTxQyLPBkOvxY=
 github.com/TheCacophonyProject/modemd v0.0.0-20190605010435-ae5b0f2eb760 h1:DIImejLRk/+sdvtUdAOE9bF984eiL7kuj5XJVu4K060=
@@ -228,8 +227,6 @@ github.com/grpc-ecosystem/grpc-gateway v1.9.0/go.mod h1:vNeuVxBJEsws4ogUvrchl83t
 github.com/grpc-ecosystem/grpc-gateway v1.16.0/go.mod h1:BDjrQk3hbvj6Nolgz8mAMFbcEtjT1g+wF4CSlocrBnw=
 github.com/guelfey/go.dbus v0.0.0-20220105183920-7084538c37af h1:hq8nXI7SSuCMOYxaT/NB+4cHphOmGPT4cQbSahL0tjM=
 github.com/guelfey/go.dbus v0.0.0-20220105183920-7084538c37af/go.mod h1:0CNX5Cvi77WEH8llpfZ/ieuqyceb1cnO5//b5zzsnF8=
-github.com/gw7nvw/lora_events v0.0.0-20220626071130-43a20eef9d2e h1:WtoC+OXA5C2ckI3wWcv3gmMZpB5AgbtiExtyvuWPQGA=
-github.com/gw7nvw/lora_events v0.0.0-20220626071130-43a20eef9d2e/go.mod h1:4N2KaXBiv4gev+j7FSd7exKIv1r1F9XtxctXdC+3DN8=
 github.com/hashicorp/consul/api v1.10.1/go.mod h1:XjsvQN+RJGWI2TWy1/kqaE16HrR2J/FWgkYjdZQsX9M=
 github.com/hashicorp/consul/sdk v0.8.0/go.mod h1:GBvyrGALthsZObzUGsfgHZQDXjg4lOjagTIwIR1vPms=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
