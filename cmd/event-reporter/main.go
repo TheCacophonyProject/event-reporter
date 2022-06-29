@@ -125,15 +125,15 @@ func sendEvents(
 
         //If WIFI is up, use IP to send events
         if connrequester.CheckWifiConnection() {
-                log.println("WIFI is up, sending events over IP")
+                log.Println("WIFI is up, sending events over IP")
                 success = sendEventsByApi(store, eventKeys, cr)
         //Otherwise, try LoRa first
         } else {
-                log.println("WIFI is down, try sending events over LoRa")
+                log.Println("WIFI is down, try sending events over LoRa")
                 success = sendEventsByLora(store, eventKeys, loraConn)
                 //Then fall-back to IP over modem
                 if success!=true {
-                        log.println("WIFI and LoRa are down, try sending events over modem")
+                        log.Println("WIFI and LoRa are down, try sending events over modem")
                         success = sendEventsByApi(store, eventKeys, cr)
                 }
         }
