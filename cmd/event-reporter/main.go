@@ -30,6 +30,7 @@ import (
 	"github.com/TheCacophonyProject/event-reporter/v3/eventclient"
 	"github.com/TheCacophonyProject/event-reporter/v3/eventstore"
 	"github.com/TheCacophonyProject/modemd/connrequester"
+	"github.com/TheCacophonyProject/modemd/modemlistener"
 	arg "github.com/alexflint/go-arg"
 
 	"github.com/TheCacophonyProject/go-api"
@@ -92,6 +93,10 @@ func runMain() error {
 
 	//If powered off time was saved make a powered off event
 	makePowerOffEvent()
+	modemConnectSignal, err := modemlistener.GetModemConnectedSignalListener()
+	if err != nil {
+		log.Println("Failed to get modem connected signal listener")
+	}
 
 	for {
 		eventKeys, err := store.GetKeys()
@@ -108,6 +113,8 @@ func runMain() error {
 		select {
 		case <-uploadEventsChan:
 			log.Println("events upload requested")
+		case <-modemConnectSignal:
+			log.Println("Modem connected.")
 		case <-time.After(args.Interval):
 		}
 	}
