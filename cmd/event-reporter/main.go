@@ -110,12 +110,24 @@ func runMain() error {
 			sendEvents(store, eventKeys, cr)
 		}
 
+		// Empty modemConnectSignal channel so as to not trigger from old signals
+		emptyChannel(modemConnectSignal)
 		select {
 		case <-uploadEventsChan:
 			log.Println("events upload requested")
 		case <-modemConnectSignal:
 			log.Println("Modem connected.")
 		case <-time.After(args.Interval):
+		}
+	}
+}
+
+func emptyChannel(ch chan time.Time) {
+	for {
+		select {
+		case <-ch:
+		default:
+			return
 		}
 	}
 }
