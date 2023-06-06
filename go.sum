@@ -53,8 +53,9 @@ github.com/TheCacophonyProject/go-api v0.0.0-20190923033957-174cea2ac81c/go.mod 
 github.com/TheCacophonyProject/go-api v1.0.2 h1:6fVnts23OFsUuUec9GjGEhH86WmOkev/X9FzSVCEzso=
 github.com/TheCacophonyProject/go-api v1.0.2/go.mod h1:SH5Jo4bH5UdMetAUpoDeFwMYxV1RdiektVNQT11k9ow=
 github.com/TheCacophonyProject/go-config v0.0.0-20190922224052-7c2a21bc6b88/go.mod h1:gPUJLVu408NRz9/P3BrsxzOzLc+KJLrv+jVdDw3RI0Y=
-github.com/TheCacophonyProject/go-config v1.7.0 h1:f20lrqbFjiOvMfVAUfqJkhhhBUOMWVsUAu7WpgxE184=
 github.com/TheCacophonyProject/go-config v1.7.0/go.mod h1:2VGuQR5dATuq8nzdBMQd7mbc6OhCimkSsGHRLWcer2c=
+github.com/TheCacophonyProject/go-config v1.8.2 h1:jpmkenUWCDmOHXkWuJGEc5eLTNqhmJvvXWZiAMzxmo8=
+github.com/TheCacophonyProject/go-config v1.8.2/go.mod h1:65yj/WEJ4yBUjYSMmTRH4wuzcvsmJNUrvziP6lzGXcA=
 github.com/TheCacophonyProject/go-cptv v0.0.0-20200116020937-858bd8b71512/go.mod h1:8H6Aaft5549sIWxcsuCIL2o60/TQkoF93fVoSTpgZb8=
 github.com/TheCacophonyProject/go-cptv v0.0.0-20200616224711-fc633122087a/go.mod h1:Vg73Ezn4kr8qDNP9LNgjki9qgi+5T/0Uc9oDyflaYUY=
 github.com/TheCacophonyProject/go-cptv v0.0.0-20201215230510-ae7134e91a71 h1:g6XLYIt3hFo2JOQhbfySLxcFFv0kofg0L1Z7MyNXsLc=
@@ -64,8 +65,9 @@ github.com/TheCacophonyProject/lepton3 v0.0.0-20200213011619-1934a9300bd3/go.mod
 github.com/TheCacophonyProject/lepton3 v0.0.0-20210324024142-003e5546e30f/go.mod h1:+FTQKx63hdEbuTe/nxNv9TQ2EWqdlzMZx7UNLGCX9SE=
 github.com/TheCacophonyProject/lepton3 v0.0.0-20211005194419-22311c15d6ee h1:whilFI36xLtsd7p6blNKH3LKdU/g1gZv1SClUPJrpgs=
 github.com/TheCacophonyProject/lepton3 v0.0.0-20211005194419-22311c15d6ee/go.mod h1:+FTQKx63hdEbuTe/nxNv9TQ2EWqdlzMZx7UNLGCX9SE=
-github.com/TheCacophonyProject/modemd v0.0.0-20190605010435-ae5b0f2eb760 h1:DIImejLRk/+sdvtUdAOE9bF984eiL7kuj5XJVu4K060=
 github.com/TheCacophonyProject/modemd v0.0.0-20190605010435-ae5b0f2eb760/go.mod h1:bfwJ/WcvDY9XtHKC5tcRfVrU8RWaW8DLYAAUfsrJr/4=
+github.com/TheCacophonyProject/modemd v1.5.1 h1:xvsUqKeD/opHd95Votybn/zhrZ/zCwYQrI9/xYm/MUY=
+github.com/TheCacophonyProject/modemd v1.5.1/go.mod h1:zmwP2DewAQPOwKUaZ02T53YcOeq14t6RL1o8yIeGqBo=
 github.com/TheCacophonyProject/periph v2.1.1-0.20200615222341-6834cd5be8c1+incompatible h1:0pEn1FoMTgOZR3EkqOTiqd0++jOS/jWlGrbvOHK0/KM=
 github.com/TheCacophonyProject/periph v2.1.1-0.20200615222341-6834cd5be8c1+incompatible/go.mod h1:K1wa07sGXKzV0G9p+4R069mZk4GOpqKW8GU6/k+BrIo=
 github.com/TheCacophonyProject/window v0.0.0-20190821235241-ab92c2ee24b6/go.mod h1:Vww417iimOb0s46Ndsm8U/vYtwc0dZUet4uW8QzBo4M=
