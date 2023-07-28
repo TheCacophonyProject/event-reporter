@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"github.com/TheCacophonyProject/event-reporter/v3/eventclient"
-	systemdbus "github.com/coreos/go-systemd/dbus"
+	systemdbus "github.com/coreos/go-systemd/v22/dbus"
 )
 
 const (
