@@ -20,6 +20,7 @@ package main
 
 import (
 	"log"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -95,6 +96,24 @@ func getInstalledPackages() (map[string]interface{}, error) {
 		}
 		words := strings.Split(strings.TrimSpace(row), "|")
 		data[words[0]] = words[1]
+	}
+
+	classifier_path := "/home/pi/.venv/classifier/bin/python"
+	if _, err := os.Stat(classifier_path); err == nil {
+		out, err := exec.Command(classifier_path, "-m", "pip", "show", "classifier-pipeline").Output()
+		if err != nil {
+			return data, nil
+		}
+
+		pipInfo := string(out)
+		version_index := strings.Index(pipInfo, "Version:")
+		if version_index != -1 {
+			pipInfo = pipInfo[version_index+9:]
+			end_line := strings.Index(pipInfo, "\n")
+			version_info := strings.Trim(pipInfo[:end_line], " ")
+			data["classifier-pipeline"] = version_info
+		}
+
 	}
 
 	return data, nil
