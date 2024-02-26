@@ -20,7 +20,6 @@ package main
 
 import (
 	"log"
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -53,7 +52,7 @@ func runMain() error {
 	for i := 3; i > 0; i-- {
 		err := eventclient.AddEvent(event)
 		if err == nil {
-			log.Println("added verionData event")
+			log.Println("Added versionData event, requesting upload of events.")
 			if err := eventclient.UploadEvents(); err != nil {
 				return err
 			}
@@ -63,7 +62,7 @@ func runMain() error {
 			log.Println(err)
 			break
 		}
-		log.Println("failed to log event. Will retry in 5 seconds")
+		log.Println("Failed to log event. Will retry in 5 seconds.")
 		time.Sleep(5 * time.Second)
 	}
 
@@ -98,23 +97,14 @@ func getInstalledPackages() (map[string]interface{}, error) {
 		data[words[0]] = words[1]
 	}
 
+	// Using the normal `pip show` method can take about 10 seconds, this is much faster, about 1 second.
 	classifier_path := "/home/pi/.venv/classifier/bin/python"
-	if _, err := os.Stat(classifier_path); err == nil {
-		out, err := exec.Command(classifier_path, "-m", "pip", "show", "classifier-pipeline").Output()
-		if err != nil {
-			return data, nil
-		}
-
-		pipInfo := string(out)
-		version_index := strings.Index(pipInfo, "Version:")
-		if version_index != -1 {
-			pipInfo = pipInfo[version_index+9:]
-			end_line := strings.Index(pipInfo, "\n")
-			version_info := strings.Trim(pipInfo[:end_line], " ")
-			data["classifier-pipeline"] = version_info
-		}
-
+	versionCode := "import importlib.metadata; print(importlib.metadata.version('classifier-pipeline'))"
+	out, err = exec.Command(classifier_path, "-c", versionCode).CombinedOutput()
+	if err != nil {
+		log.Printf("Failed to get classifier-pipeline version: %v", err)
+		return data, nil
 	}
-
+	data["classifier-pipeline"] = strings.TrimSpace(string(out))
 	return data, nil
 }
