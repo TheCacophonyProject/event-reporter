@@ -20,7 +20,6 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
@@ -235,7 +234,7 @@ func plural(n int) string {
 }
 
 func makePowerOffEvent() {
-	outBytes, err := ioutil.ReadFile(poweredOffTimeFile)
+	outBytes, err := os.ReadFile(poweredOffTimeFile)
 	if err != nil {
 		return
 	}
@@ -246,7 +245,7 @@ func makePowerOffEvent() {
 	}
 	eventclient.AddEvent(eventclient.Event{
 		Timestamp: time.Unix(0, nanoTime),
-		Type:      "powered-off",
+		Type:      "rpiPoweredOff",
 	})
 	os.Remove(poweredOffTimeFile)
 }
