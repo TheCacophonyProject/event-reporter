@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"os/exec"
@@ -59,17 +60,17 @@ func main() {
 func runMain() error {
 	log.SetFlags(0) // Removes default timestamp flag
 
-	conn, err := systemdbus.New()
+	conn, err := systemdbus.NewWithContext(context.Background())
 	if err != nil {
 		log.Printf("failed to connect to dbus: %v", err)
 		return err
 	}
-	log.Println("connected to systemdbus")
+	log.Println("Connected to systemdbus")
 
 	defer conn.Close()
 
 	if err := conn.Subscribe(); err != nil {
-		log.Printf("failed to subscribe to the dbus: %v", err)
+		log.Printf("Failed to subscribe to the dbus: %v", err)
 		return err
 	}
 
@@ -88,8 +89,8 @@ func runMain() error {
 			if !isInterestingState(activeState) {
 				break
 			}
-			if t, ok := lastUnitReportTimes[unitName]; ok && time.Now().Sub(t) < minTimeBetweenReports {
-				log.Println("reporting too often")
+			if t, ok := lastUnitReportTimes[unitName]; ok && time.Since(t) < minTimeBetweenReports {
+				log.Println("Reporting too often")
 				break
 			}
 
@@ -101,7 +102,7 @@ func runMain() error {
 				break // Can just be a service activating
 			}
 
-			log.Printf("service failed. unitname: %s, activeState: %s", unitName, activeState)
+			log.Printf("Service failed. unitName: %s, activeState: %s", unitName, activeState)
 			for _, l := range rawLogs {
 				log.Println(l)
 			}
@@ -115,9 +116,6 @@ func runMain() error {
 					"logs":        rawLogs,
 					"activeState": activeState,
 				},
-			}
-			if err != nil {
-				return err
 			}
 			if err := eventclient.AddEvent(event); err != nil {
 				return err
@@ -156,7 +154,10 @@ func getLogs(unitName string, numLines int) ([]string, bool, error) {
 				logs = nil
 				failed = false
 			}
-			if strings.Contains(rawLog.Message, "Unit entered failed state.") {
+			if strings.Contains(rawLog.Message, "Unit entered failed state.") { // Needed for older cameras
+				failed = true
+			}
+			if strings.Contains(rawLog.Message, "Failed with result") { // Needed for TC2 cameras
 				failed = true
 			}
 		}
@@ -168,7 +169,6 @@ func getLogs(unitName string, numLines int) ([]string, bool, error) {
 func isInterestingState(state string) bool {
 	switch state {
 	case
-		//"active",			// triggered when service exec is started
 		"activating", // If service is set to restart this is called after the service exec exits
 		"failed":     // If service is set to restart the service won't 'fail'.
 		return true
