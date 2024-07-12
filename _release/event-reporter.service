@@ -1,6 +1,6 @@
 [Unit]
 Description=Cacophony Project Event Reporter
-After=multi-user.target
+Before=network.target
 
 [Service]
 Type=simple
