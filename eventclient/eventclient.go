@@ -97,11 +97,30 @@ func UploadEvents() error {
 }
 
 func eventsDbusCall(method string, params ...interface{}) ([]interface{}, error) {
+
+	// Retry mechanism with a maximum wait time of 10 seconds
+	maxWaitTime := 10 * time.Second
+	startTime := time.Now()
+
 	conn, err := dbus.SystemBus()
 	if err != nil {
 		return nil, err
 	}
 	obj := conn.Object("org.cacophony.Events", "/org/cacophony/Events")
-	call := obj.Call(method, 0, params...)
-	return call.Body, call.Err
+	for {
+		call := obj.Call(method, 0, params...)
+
+		if call.Err == nil {
+			return call.Body, call.Err
+		}
+
+		if dbusErr, ok := call.Err.(dbus.Error); ok && dbusErr.Name == "org.freedesktop.DBus.Error.ServiceUnknown" {
+			if time.Since(startTime) > maxWaitTime {
+				return nil, errors.New("dbus service not available within the timeout period")
+			}
+			time.Sleep(500 * time.Millisecond)
+		} else {
+			return nil, call.Err
+		}
+	}
 }
