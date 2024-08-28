@@ -21,7 +21,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"time"
 
 	"github.com/godbus/dbus"

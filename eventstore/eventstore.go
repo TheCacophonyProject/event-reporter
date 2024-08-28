@@ -24,9 +24,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
+	"github.com/TheCacophonyProject/go-utils/logging"
 	"github.com/boltdb/bolt"
 )
 
@@ -36,6 +36,7 @@ const (
 
 var oldBucketName = []byte("events")
 var idDataBucketName = []byte("id-data-events") // Bucket with the key being a uint64 and the value being a json
+var log = logging.NewLogger("info")
 
 // EventStore perists details for events which are to be sent to the
 // Cacophony Events API.

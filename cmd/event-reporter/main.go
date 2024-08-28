@@ -20,7 +20,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -28,9 +27,11 @@ import (
 
 	"github.com/TheCacophonyProject/event-reporter/v3/eventclient"
 	"github.com/TheCacophonyProject/event-reporter/v3/eventstore"
+	"github.com/TheCacophonyProject/go-utils/logging"
 	"github.com/TheCacophonyProject/modemd/connrequester"
 	"github.com/TheCacophonyProject/modemd/modemlistener"
 	arg "github.com/alexflint/go-arg"
+	"github.com/sirupsen/logrus"
 
 	"github.com/TheCacophonyProject/go-api"
 )
@@ -43,10 +44,12 @@ const (
 )
 
 var version = "No version provided"
+var log *logrus.Logger
 
 type argSpec struct {
 	DBPath   string        `arg:"-d,--db" help:"path to state database"`
 	Interval time.Duration `arg:"--interval" help:"time between event reports"`
+	logging.LogArgs
 }
 
 func (argSpec) Version() string {
@@ -72,7 +75,9 @@ func main() {
 
 func runMain() error {
 	args := procArgs()
-	log.SetFlags(0) // Removes default timestamp flag
+
+	log = logging.NewLogger(args.LogLevel)
+
 	log.Printf("running version: %s", version)
 
 	store, err := eventstore.Open(args.DBPath)
