@@ -21,13 +21,14 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"os/exec"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/TheCacophonyProject/event-reporter/v3/eventclient"
+	"github.com/TheCacophonyProject/go-utils/logging"
+	"github.com/alexflint/go-arg"
 	systemdbus "github.com/coreos/go-systemd/v22/dbus"
 )
 
@@ -35,6 +36,23 @@ const (
 	minTimeBetweenReports = 20 * time.Minute //TODO add into cacophony-config
 	numLogLines           = 20               //TODO add into cacophony-config
 )
+
+var log = logging.NewLogger("info")
+var version = "<not set>"
+
+type argSpec struct {
+	logging.LogArgs
+}
+
+func (argSpec) Version() string {
+	return version
+}
+
+func procArgs() argSpec {
+	args := argSpec{}
+	arg.MustParse(&args)
+	return args
+}
 
 type LogReport struct {
 	Logs        *[]string
@@ -58,7 +76,11 @@ func main() {
 }
 
 func runMain() error {
-	log.SetFlags(0) // Removes default timestamp flag
+	args := procArgs()
+
+	log = logging.NewLogger(args.LogLevel)
+
+	log.Info("Running version: ", version)
 
 	conn, err := systemdbus.NewWithContext(context.Background())
 	if err != nil {

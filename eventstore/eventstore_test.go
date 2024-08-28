@@ -20,8 +20,6 @@ package eventstore
 
 import (
 	"encoding/json"
-	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"testing"
@@ -39,7 +37,7 @@ type Suite struct {
 }
 
 func (suite *Suite) SetupTest() {
-	tempDir, err := ioutil.TempDir(os.TempDir(), "eventstore_test")
+	tempDir, err := os.MkdirTemp(os.TempDir(), "eventstore_test")
 	suite.Require().NoError(err)
 	suite.tempDir = tempDir
 
@@ -137,15 +135,15 @@ func (s *Suite) TestAddAndGet() {
 	time2 := Now().Add(time.Second)
 	time3 := Now().Add(2 * time.Second)
 	events := map[int64]Event{
-		time1.Unix(): Event{
+		time1.Unix(): {
 			Description: EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "type1"},
 			Timestamp:   time1,
 		},
-		time2.Unix(): Event{
+		time2.Unix(): {
 			Timestamp:   time2,
 			Description: EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "type1"},
 		},
-		time3.Unix(): Event{
+		time3.Unix(): {
 			Timestamp:   time3,
 			Description: EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "type1"},
 		},

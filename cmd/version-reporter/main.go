@@ -19,14 +19,32 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
-	"log"
 	"os/exec"
 	"runtime"
 	"strings"
 	"time"
 
 	"github.com/TheCacophonyProject/event-reporter/v3/eventclient"
+	"github.com/TheCacophonyProject/go-utils/logging"
+	"github.com/alexflint/go-arg"
 )
+
+var log = logging.NewLogger("info")
+var version = "<not set>"
+
+type argSpec struct {
+	logging.LogArgs
+}
+
+func (argSpec) Version() string {
+	return version
+}
+
+func procArgs() argSpec {
+	args := argSpec{}
+	arg.MustParse(&args)
+	return args
+}
 
 func main() {
 	err := runMain()
@@ -36,7 +54,11 @@ func main() {
 }
 
 func runMain() error {
-	log.SetFlags(0) // Removes default timestamp flag
+	args := procArgs()
+
+	log = logging.NewLogger(args.LogLevel)
+
+	log.Info("Running version: ", version)
 
 	packageMpedData, err := getInstalledPackages()
 	if err != nil {
