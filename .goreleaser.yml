@@ -1,6 +1,8 @@
 project_name: event-reporter
 dist: dist
 
+version: 2
+
 release:
   github:
     owner: TheCacophonyProject
