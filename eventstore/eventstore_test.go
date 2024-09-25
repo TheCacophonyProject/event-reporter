@@ -36,28 +36,28 @@ type Suite struct {
 	store   *EventStore
 }
 
-func (suite *Suite) SetupTest() {
+func (s *Suite) SetupTest() {
 	tempDir, err := os.MkdirTemp(os.TempDir(), "eventstore_test")
-	suite.Require().NoError(err)
-	suite.tempDir = tempDir
+	s.Require().NoError(err)
+	s.tempDir = tempDir
 
-	suite.store = suite.openStore()
+	s.store = s.openStore()
 }
 
-func (suite *Suite) openStore() *EventStore {
-	store, err := Open(filepath.Join(suite.tempDir, "store.db"))
-	suite.Require().NoError(err)
+func (s *Suite) openStore() *EventStore {
+	store, err := Open(filepath.Join(s.tempDir, "store.db"))
+	s.Require().NoError(err)
 	return store
 }
 
-func (suite *Suite) TearDownTest() {
-	if suite.store != nil {
-		suite.store.Close()
-		suite.store = nil
+func (s *Suite) TearDownTest() {
+	if s.store != nil {
+		s.store.Close()
+		s.store = nil
 	}
-	if suite.tempDir != "" {
-		os.RemoveAll(suite.tempDir)
-		suite.tempDir = ""
+	if s.tempDir != "" {
+		os.RemoveAll(s.tempDir)
+		s.tempDir = ""
 	}
 }
 
