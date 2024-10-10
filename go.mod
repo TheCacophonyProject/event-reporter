@@ -4,18 +4,17 @@ go 1.22.3
 
 require (
 	github.com/TheCacophonyProject/go-api v1.0.4
-	github.com/TheCacophonyProject/go-utils v0.1.1
-	github.com/TheCacophonyProject/modemd v1.6.0
+	github.com/TheCacophonyProject/go-utils v0.1.3
+	github.com/TheCacophonyProject/modemd v1.11.0-tc2
 	github.com/alexflint/go-arg v1.4.2
 	github.com/boltdb/bolt v1.3.1
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/godbus/dbus v4.1.0+incompatible
-	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.7.0
 )
 
 require (
-	github.com/TheCacophonyProject/go-config v1.9.0 // indirect
+	github.com/TheCacophonyProject/go-config v1.9.1 // indirect
 	github.com/alexflint/go-scalar v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
@@ -26,6 +25,7 @@ require (
 	github.com/mitchellh/mapstructure v1.4.2 // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/afero v1.6.0 // indirect
 	github.com/spf13/cast v1.4.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
