@@ -31,7 +31,6 @@ import (
 	"github.com/TheCacophonyProject/modemd/connrequester"
 	"github.com/TheCacophonyProject/modemd/modemlistener"
 	arg "github.com/alexflint/go-arg"
-	"github.com/sirupsen/logrus"
 
 	"github.com/TheCacophonyProject/go-api"
 )
@@ -44,7 +43,7 @@ const (
 )
 
 var version = "No version provided"
-var log *logrus.Logger
+var log *logging.Logger
 
 type argSpec struct {
 	DBPath   string        `arg:"-d,--db" help:"path to state database"`
