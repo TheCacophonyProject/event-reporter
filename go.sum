@@ -53,13 +53,14 @@ github.com/TheCacophonyProject/go-api v0.0.0-20190923033957-174cea2ac81c/go.mod 
 github.com/TheCacophonyProject/go-api v1.0.4 h1:eJoqy9xw1O5Ks9MyH2cEehobkj/HgB4ZrYSrvic60D0=
 github.com/TheCacophonyProject/go-api v1.0.4/go.mod h1:F7UUNgsLhbw7hsiNBMRB9kQz9uXXosVmNToqImz7EA8=
 github.com/TheCacophonyProject/go-config v0.0.0-20190922224052-7c2a21bc6b88/go.mod h1:gPUJLVu408NRz9/P3BrsxzOzLc+KJLrv+jVdDw3RI0Y=
-github.com/TheCacophonyProject/go-config v1.9.0 h1:uangUL8e/76ApGzF2tYGKDm+DoDjezVhuJquTX41rHQ=
 github.com/TheCacophonyProject/go-config v1.9.0/go.mod h1:+y80PSRZudMYuVrYTGOvzc66NxVJWKS4TuU442vmvhY=
-github.com/TheCacophonyProject/go-utils v0.1.1 h1:VOt9EphEqRUYMqKJlJeliIarIMlCVKYGb1fdqM6b4YM=
-github.com/TheCacophonyProject/go-utils v0.1.1/go.mod h1:jZPUZ4GtYVxnlTtqiYKMFWDT//kmxdbwjLW3HCyCmCE=
+github.com/TheCacophonyProject/go-config v1.9.1 h1:TCeogtNYg5eHx2q97DQ1B+RsbjacW+jr7h1TCv1FpAk=
+github.com/TheCacophonyProject/go-config v1.9.1/go.mod h1:XZwQmNl2wQXhYR18RQtwZ6LwFwgAx73yzJfymYLz68s=
+github.com/TheCacophonyProject/go-utils v0.1.3 h1:DSuDeJz7ZM00yQRLsoukWH0fnC+8X8+ziYxOl6l3wEY=
+github.com/TheCacophonyProject/go-utils v0.1.3/go.mod h1:jZPUZ4GtYVxnlTtqiYKMFWDT//kmxdbwjLW3HCyCmCE=
 github.com/TheCacophonyProject/modemd v0.0.0-20190605010435-ae5b0f2eb760/go.mod h1:bfwJ/WcvDY9XtHKC5tcRfVrU8RWaW8DLYAAUfsrJr/4=
-github.com/TheCacophonyProject/modemd v1.6.0 h1:o2Rp44VRKzk5OvgqjNgx7RBLYqsJBR4HAyPShnH80/0=
-github.com/TheCacophonyProject/modemd v1.6.0/go.mod h1:0M7yJCdqhvoI5dVeDjOH6vsmbOBr1YhZ8DpAK4AkOA0=
+github.com/TheCacophonyProject/modemd v1.11.0-tc2 h1:BdP6L0yKkMfKgFCqPcdK0T3BSsN5dF09VmzE64STVtM=
+github.com/TheCacophonyProject/modemd v1.11.0-tc2/go.mod h1:H2lbueuykc50mREskWI2ayAPEhh+LghyDgyLsPnDCbY=
 github.com/TheCacophonyProject/window v0.0.0-20190821235241-ab92c2ee24b6/go.mod h1:Vww417iimOb0s46Ndsm8U/vYtwc0dZUet4uW8QzBo4M=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
@@ -786,7 +787,6 @@ honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt0JzvZhAg=
 honnef.co/go/tools v0.0.1-2020.1.3/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9vFzvIQ3k=
 honnef.co/go/tools v0.0.1-2020.1.4/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9vFzvIQ3k=
-periph.io/x/periph v3.6.8+incompatible/go.mod h1:EWr+FCIU2dBWz5/wSWeiIUJTriYv9v2j2ENBmgYyy7Y=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
 rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=
