@@ -27,6 +27,7 @@ import (
 	"github.com/godbus/dbus/introspect"
 
 	"github.com/TheCacophonyProject/event-reporter/v3/eventstore"
+	"github.com/TheCacophonyProject/go-utils/saltutil"
 )
 
 const dbusName = "org.cacophony.Events"
@@ -104,6 +105,12 @@ func (svc *service) Add(detailsRaw string, eventType string, unixNsec int64) *db
 	details := map[string]interface{}{}
 	if err := json.Unmarshal([]byte(detailsRaw), &details); err != nil {
 		return dbusErr("", err)
+	}
+	environment, err := saltutil.GetNodegroupFromFile()
+	if err != nil {
+		log.Errorf("failed to read nodegroup file: %v", err)
+	} else {
+		details["env"] = environment
 	}
 
 	event := &eventstore.Event{
