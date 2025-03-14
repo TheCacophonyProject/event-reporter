@@ -21,6 +21,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -68,6 +69,20 @@ type LogsRaw struct {
 	Message           string `json:"MESSAGE"`
 }
 
+var packageToServiceMap = map[string][]string{
+	"tc2-agent":            {"tc2-agent"},
+	"cacophony-config":     {"cacophony-config-sync"},
+	"device-register":      {"device-register"},
+	"event-reporter":       {"event-reporter", "version-reporter", "rpi-power-off", "rpi-power-on", "service-watcher"},
+	"management-interface": {"managementd"},
+	"modemd":               {"modemd"},
+	"rpi-net-manager":      {"rpi-net-manager"},
+	"salt-updater":         {"salt-updater"},
+	"trap-controller":      {"trap-controller"},
+	"thermal-uploader":     {"thermal-uploader"},
+	"tc2-hat-controller":   {"tc2-hat-comms", "tc2-hat-i2c", "tc2-hat-rtc", "tc2-hat-temp", "tc2-hat-attiny", "rpi-reboot"},
+}
+
 func main() {
 	err := runMain()
 	if err != nil {
@@ -82,12 +97,31 @@ func runMain() error {
 
 	log.Info("Running version: ", version)
 
+	serviceToPackageMap := map[string]string{}
+	for pkg, services := range packageToServiceMap {
+		for _, service := range services {
+			serviceToPackageMap[service] = pkg
+		}
+	}
+
+	/*
+		// Test code for checking that all the versions can be found
+		for service, pkg := range serviceToPackageMap {
+			version, err := getPackageVersion(pkg)
+			if err != nil {
+				log.Printf("failed to get version for package %s: %v", pkg, err)
+			} else {
+				log.Printf("Service %s is version %s", service, version)
+			}
+		}
+	*/
+
 	conn, err := systemdbus.NewWithContext(context.Background())
 	if err != nil {
 		log.Printf("failed to connect to dbus: %v", err)
 		return err
 	}
-	log.Println("Connected to systemdbus")
+	log.Println("Connected to system dbus")
 
 	defer conn.Close()
 
@@ -106,13 +140,13 @@ func runMain() error {
 		case update := <-updateCh:
 			ts := time.Now()
 			activeState := strings.Trim(update.Changed["ActiveState"].String(), "\"")
-			unitName := update.UnitName
+			unitName := strings.TrimSuffix(update.UnitName, ".service")
 			// Only process states we are interested in
 			if !isInterestingState(activeState) {
 				break
 			}
 			if t, ok := lastUnitReportTimes[unitName]; ok && time.Since(t) < minTimeBetweenReports {
-				log.Println("Reporting too often")
+				log.Info("Reporting too often for ", unitName)
 				break
 			}
 
@@ -126,14 +160,32 @@ func runMain() error {
 
 			log.Printf("Service failed. unitName: %s, activeState: %s", unitName, activeState)
 			for _, l := range rawLogs {
-				log.Println(l)
+				log.Debug(l)
+			}
+
+			version := "unknown"
+			packageName, ok := serviceToPackageMap[unitName]
+			if ok {
+				version, err = getPackageVersion(packageName)
+				if err != nil {
+					log.Printf("failed to get version for package %s: %v", packageName, err)
+				}
+			} else {
+				log.Infof("Unknown unitName: %s", unitName)
+			}
+			log.Debug("Version: ", version)
+
+			// If it is a snapshot then we don't need to be making service errors.
+			if strings.Contains(version, "SNAPSHOT") {
+				log.Infof("Skipping making service error for SNAPSHOT. Unit '%s', version '%s'", unitName, version)
+				break
 			}
 
 			event := eventclient.Event{
 				Timestamp: ts,
 				Type:      "systemError",
 				Details: map[string]interface{}{
-					"version":     1,
+					"version":     version,
 					"unitName":    unitName,
 					"logs":        rawLogs,
 					"activeState": activeState,
@@ -186,6 +238,20 @@ func getLogs(unitName string, numLines int) ([]string, bool, error) {
 		logs = append(logs, rawLog.Message)
 	}
 	return logs, failed, nil
+}
+
+func getPackageVersion(packageName string) (string, error) {
+	output, err := exec.Command("dpkg-query", "--show", "--showformat=${Version}", packageName).Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get version for package %s: %v", packageName, err)
+	}
+
+	version := strings.TrimSpace(string(output))
+	if version == "" {
+		return "", fmt.Errorf("package %s is not installed or version could not be determined", packageName)
+	}
+
+	return version, nil
 }
 
 func isInterestingState(state string) bool {
