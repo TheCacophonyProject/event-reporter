@@ -102,6 +102,10 @@ func (svc *service) Queue(details []byte, nanos int64) *dbus.Error {
 }
 
 func (svc *service) Add(detailsRaw string, eventType string, unixNsec int64) *dbus.Error {
+	log.Info(eventType)
+	if eventType == "systemError" && getSystemErrorTime().IsZero() {
+		setSystemErrorTime(time.Now())
+	}
 	details := map[string]interface{}{}
 	if err := json.Unmarshal([]byte(detailsRaw), &details); err != nil {
 		return dbusErr("", err)
