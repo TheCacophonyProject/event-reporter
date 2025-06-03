@@ -26,6 +26,7 @@ import (
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"
 
+	"github.com/TheCacophonyProject/event-reporter/v3/eventclient"
 	"github.com/TheCacophonyProject/event-reporter/v3/eventstore"
 	"github.com/TheCacophonyProject/go-utils/saltutil"
 )
@@ -102,10 +103,14 @@ func (svc *service) Queue(details []byte, nanos int64) *dbus.Error {
 }
 
 func (svc *service) Add(detailsRaw string, eventType string, unixNsec int64) *dbus.Error {
+	log.Debugf("Adding event: %s, type: %s, unixNsec: %d", detailsRaw, eventType, unixNsec)
 	details := map[string]interface{}{}
-	if err := json.Unmarshal([]byte(detailsRaw), &details); err != nil {
-		return dbusErr("", err)
+	if detailsRaw != "" && detailsRaw != "null" {
+		if err := json.Unmarshal([]byte(detailsRaw), &details); err != nil {
+			return dbusErr("", err)
+		}
 	}
+	log.Debug("Details: ", details)
 	environment, err := saltutil.GetNodegroupFromFile()
 	if err != nil {
 		log.Errorf("failed to read nodegroup file: %v", err)
@@ -121,7 +126,18 @@ func (svc *service) Add(detailsRaw string, eventType string, unixNsec int64) *db
 		},
 	}
 
-	return dbusErr(".Errors.AddFailed", svc.store.Add(event))
+	if details[eventclient.SeverityKey] == eventclient.SeverityError {
+		log.Info("Event severity: ", details[eventclient.SeverityKey])
+		log.Debugf("Event: %+v", event)
+		if getSeverityErrorTime().IsZero() {
+			setSeverityErrorTime(time.Now())
+		}
+	}
+
+	if err := svc.store.Add(event); err != nil {
+		return dbusErr(".Errors.AddFailed", err)
+	}
+	return nil
 }
 
 func (svc *service) Get(key uint64) (string, *dbus.Error) {

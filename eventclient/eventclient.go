@@ -28,6 +28,14 @@ import (
 	"github.com/TheCacophonyProject/event-reporter/v3/eventstore"
 )
 
+// Severity can be added in the events Details map. This is to help alert us and the users of potential issues.
+const (
+	SeverityKey     = "severity"
+	SeverityInfo    = "info"    // Just for logging; no action needed.
+	SeverityWarning = "warning" // User attention might be required (e.g., low battery).
+	SeverityError   = "error"   // Something went wrong.
+)
+
 type Event struct {
 	Timestamp time.Time
 	Type      string

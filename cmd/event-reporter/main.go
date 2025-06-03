@@ -21,13 +21,16 @@ package main
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/TheCacophonyProject/event-reporter/v3/eventclient"
 	"github.com/TheCacophonyProject/event-reporter/v3/eventstore"
 	"github.com/TheCacophonyProject/go-utils/logging"
+	"github.com/TheCacophonyProject/go-utils/saltutil"
 	"github.com/TheCacophonyProject/modemd/connrequester"
 	"github.com/TheCacophonyProject/modemd/modemlistener"
 	arg "github.com/alexflint/go-arg"
@@ -36,14 +39,61 @@ import (
 )
 
 const (
-	connTimeout        = time.Minute * 2
-	connRetryInterval  = time.Minute * 10
-	connMaxRetries     = 3
-	poweredOffTimeFile = "/etc/cacophony/powered-off-time"
+	connTimeout           = time.Minute * 2
+	connRetryInterval     = time.Minute * 10
+	connMaxRetries        = 3
+	poweredOffTimeFile    = "/etc/cacophony/powered-off-time"
+	severityErrorTimeFile = "/etc/cacophony/severity-error-time"
 )
 
 var version = "No version provided"
 var log *logging.Logger
+var mu sync.Mutex
+var severityErrorTime = time.Time{}
+
+func getSeverityErrorTime() time.Time {
+	mu.Lock()
+	defer mu.Unlock()
+	return severityErrorTime
+}
+
+func setSeverityErrorTime(t time.Time) {
+	log.Infof("Setting severity Error Time to %s", t.Format(time.DateTime))
+	mu.Lock()
+	severityErrorTime = t
+	mu.Unlock()
+	if err := os.WriteFile(severityErrorTimeFile, []byte(t.Format(time.DateTime)), 0644); err != nil {
+		log.Errorf("Error writing severity error time to file: %v", err)
+	}
+}
+
+func readSeverityErrorTimeFromFile() {
+	data, err := os.ReadFile(severityErrorTimeFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return
+		}
+		log.Errorf("error reading severity error time: %v", err)
+	}
+
+	t, err := time.Parse(time.DateTime, string(data))
+	if err != nil {
+		log.Errorf("error parsing '%s' to DateTime: %v", string(data), err)
+	}
+	log.Info("Reading last severity Error Time as ", t.Format(time.DateTime))
+	mu.Lock()
+	severityErrorTime = t
+	mu.Unlock()
+}
+
+func clearSeverityErrorTime() {
+	mu.Lock()
+	severityErrorTime = time.Time{}
+	mu.Unlock()
+	if err := os.Remove(severityErrorTimeFile); err != nil {
+		log.Errorf("Error removing severity error time file: %v", err)
+	}
+}
 
 type argSpec struct {
 	DBPath   string        `arg:"-d,--db" help:"path to state database"`
@@ -79,6 +129,8 @@ func runMain() error {
 
 	log.Printf("running version: %s", version)
 
+	readSeverityErrorTimeFromFile()
+
 	store, err := eventstore.Open(args.DBPath)
 	if err != nil {
 		return err
@@ -111,6 +163,9 @@ func runMain() error {
 		if sendCount > 0 {
 			log.Printf("%d event%s to send", sendCount, plural(sendCount))
 			sendEvents(store, eventKeys, cr)
+
+			// Check if the devices logs should be uploaded also through salt.
+			uploadDevicesLogs()
 		}
 
 		// Empty modemConnectSignal channel so as to not trigger from old signals
@@ -252,4 +307,54 @@ func makePowerOffEvent() {
 		Type:      "rpiPoweredOff",
 	})
 	os.Remove(poweredOffTimeFile)
+}
+
+func uploadDevicesLogs() {
+	errTime := getSeverityErrorTime()
+	if !errTime.IsZero() {
+		log.Info("Uploading device logs")
+
+		logSince := errTime.Add(-time.Hour * 12) // Get logs from 12 hours before the first error
+		oneMonth := 31 * 24 * time.Hour
+		if time.Since(logSince) > oneMonth {
+			log.Info("Limiting logs to one month.")
+			logSince = time.Now().Add(-oneMonth)
+		}
+
+		log.Infof("Uploading device logs since %s", logSince.Format(time.DateTime))
+
+		journalctlCmd := exec.Command("journalctl", "--since", logSince.Format(time.DateTime))
+
+		logFileName := "/tmp/journalctl-logs-severity-error.log"
+		logFile, err := os.Create(logFileName)
+		if err != nil {
+			log.Printf("Failed to create log file: %v", err)
+
+			return
+		}
+		defer logFile.Close()
+
+		journalctlCmd.Stdout = logFile
+
+		if err := journalctlCmd.Run(); err != nil {
+			log.Printf("Failed to run journalctl command: %v", err)
+			return
+		}
+
+		if err := exec.Command("gzip", "-f", logFileName).Run(); err != nil {
+			log.Printf("Failed to compress log file: %v", err)
+			return
+		}
+
+		if !saltutil.IsSaltIdSet() {
+			log.Error("Salt is not yet ready to upload logs")
+			return
+		}
+		if err := exec.Command("salt-call", "cp.push", logFileName+".gz").Run(); err != nil {
+			log.Printf("Error pushing log file with salt: %v", err)
+			return
+		}
+		log.Info("Device logs uploaded")
+		clearSeverityErrorTime()
+	}
 }
