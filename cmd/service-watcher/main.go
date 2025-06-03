@@ -185,10 +185,11 @@ func runMain() error {
 				Timestamp: ts,
 				Type:      "systemError",
 				Details: map[string]interface{}{
-					"version":     version,
-					"unitName":    unitName,
-					"logs":        rawLogs,
-					"activeState": activeState,
+					"version":               version,
+					"unitName":              unitName,
+					"logs":                  rawLogs,
+					"activeState":           activeState,
+					eventclient.SeverityKey: eventclient.SeverityError,
 				},
 			}
 			if err := eventclient.AddEvent(event); err != nil {

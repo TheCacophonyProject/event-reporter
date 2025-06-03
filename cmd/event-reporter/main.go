@@ -315,9 +315,10 @@ func uploadDevicesLogs() {
 		log.Info("Uploading device logs")
 
 		logSince := errTime.Add(-time.Hour * 12) // Get logs from 12 hours before the first error
-		if time.Since(logSince) > 7*24*time.Hour {
-			log.Info("Limiting logs to one week.")
-			logSince = time.Now().Add(-time.Hour * 24 * 7)
+		oneMonth := 31 * 24 * time.Hour
+		if time.Since(logSince) > oneMonth {
+			log.Info("Limiting logs to one month.")
+			logSince = time.Now().Add(-oneMonth)
 		}
 
 		log.Infof("Uploading device logs since %s", logSince.Format(time.DateTime))
