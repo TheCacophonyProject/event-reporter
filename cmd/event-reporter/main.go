@@ -39,59 +39,59 @@ import (
 )
 
 const (
-	connTimeout         = time.Minute * 2
-	connRetryInterval   = time.Minute * 10
-	connMaxRetries      = 3
-	poweredOffTimeFile  = "/etc/cacophony/powered-off-time"
-	systemErrorTimeFile = "/etc/cacophony/system-error-time"
+	connTimeout           = time.Minute * 2
+	connRetryInterval     = time.Minute * 10
+	connMaxRetries        = 3
+	poweredOffTimeFile    = "/etc/cacophony/powered-off-time"
+	severityErrorTimeFile = "/etc/cacophony/severity-error-time"
 )
 
 var version = "No version provided"
 var log *logging.Logger
 var mu sync.Mutex
-var systemErrorTime = time.Time{}
+var severityErrorTime = time.Time{}
 
-func getSystemErrorTime() time.Time {
+func getSeverityErrorTime() time.Time {
 	mu.Lock()
 	defer mu.Unlock()
-	return systemErrorTime
+	return severityErrorTime
 }
 
-func setSystemErrorTime(t time.Time) {
-	log.Infof("Setting System Error Time to %s", t.Format(time.DateTime))
+func setSeverityErrorTime(t time.Time) {
+	log.Infof("Setting severity Error Time to %s", t.Format(time.DateTime))
 	mu.Lock()
-	systemErrorTime = t
+	severityErrorTime = t
 	mu.Unlock()
-	if err := os.WriteFile(systemErrorTimeFile, []byte(t.Format(time.DateTime)), 0644); err != nil {
-		log.Errorf("Error writing system error time to file: %v", err)
+	if err := os.WriteFile(severityErrorTimeFile, []byte(t.Format(time.DateTime)), 0644); err != nil {
+		log.Errorf("Error writing severity error time to file: %v", err)
 	}
 }
 
-func readSystemErrorTimeFromFile() {
-	data, err := os.ReadFile(systemErrorTimeFile)
+func readSeverityErrorTimeFromFile() {
+	data, err := os.ReadFile(severityErrorTimeFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return
 		}
-		log.Errorf("error reading system error time: %v", err)
+		log.Errorf("error reading severity error time: %v", err)
 	}
 
 	t, err := time.Parse(time.DateTime, string(data))
 	if err != nil {
 		log.Errorf("error parsing '%s' to DateTime: %v", string(data), err)
 	}
-	log.Info("Reading last System Error Time as ", t.Format(time.DateTime))
+	log.Info("Reading last severity Error Time as ", t.Format(time.DateTime))
 	mu.Lock()
-	systemErrorTime = t
+	severityErrorTime = t
 	mu.Unlock()
 }
 
-func clearSystemErrorTime() {
+func clearSeverityErrorTime() {
 	mu.Lock()
-	systemErrorTime = time.Time{}
+	severityErrorTime = time.Time{}
 	mu.Unlock()
-	if err := os.Remove(systemErrorTimeFile); err != nil {
-		log.Errorf("Error removing system error time file: %v", err)
+	if err := os.Remove(severityErrorTimeFile); err != nil {
+		log.Errorf("Error removing severity error time file: %v", err)
 	}
 }
 
@@ -129,7 +129,7 @@ func runMain() error {
 
 	log.Printf("running version: %s", version)
 
-	readSystemErrorTimeFromFile()
+	readSeverityErrorTimeFromFile()
 
 	store, err := eventstore.Open(args.DBPath)
 	if err != nil {
@@ -310,7 +310,7 @@ func makePowerOffEvent() {
 }
 
 func uploadDevicesLogs() {
-	errTime := getSystemErrorTime()
+	errTime := getSeverityErrorTime()
 	if !errTime.IsZero() {
 		log.Info("Uploading device logs")
 
@@ -325,7 +325,7 @@ func uploadDevicesLogs() {
 
 		journalctlCmd := exec.Command("journalctl", "--since", logSince.Format(time.DateTime))
 
-		logFileName := "/tmp/journalctl-logs-system-error.log"
+		logFileName := "/tmp/journalctl-logs-severity-error.log"
 		logFile, err := os.Create(logFileName)
 		if err != nil {
 			log.Printf("Failed to create log file: %v", err)
@@ -355,6 +355,6 @@ func uploadDevicesLogs() {
 			return
 		}
 		log.Info("Device logs uploaded")
-		clearSystemErrorTime()
+		clearSeverityErrorTime()
 	}
 }

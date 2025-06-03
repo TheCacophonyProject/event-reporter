@@ -129,8 +129,8 @@ func (svc *service) Add(detailsRaw string, eventType string, unixNsec int64) *db
 	if details[eventclient.SeverityKey] == eventclient.SeverityError {
 		log.Info("Event severity: ", details[eventclient.SeverityKey])
 		log.Debugf("Event: %+v", event)
-		if getSystemErrorTime().IsZero() {
-			setSystemErrorTime(time.Now())
+		if getSeverityErrorTime().IsZero() {
+			setSeverityErrorTime(time.Now())
 		}
 	}
 
