@@ -22,7 +22,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -36,6 +38,7 @@ import (
 const (
 	minTimeBetweenReports = 20 * time.Minute //TODO add into cacophony-config
 	numLogLines           = 20               //TODO add into cacophony-config
+	serviceFailDir        = "/var/lib/cacophony/service-fail"
 )
 
 var log = logging.NewLogger("info")
@@ -97,11 +100,17 @@ func runMain() error {
 
 	log.Info("Running version: ", version)
 
+	// Create a map of service names to package names
 	serviceToPackageMap := map[string]string{}
 	for pkg, services := range packageToServiceMap {
 		for _, service := range services {
 			serviceToPackageMap[service] = pkg
 		}
+	}
+
+	// Make the directory for keeping track of the most recent time a service failed.
+	if err := os.MkdirAll(serviceFailDir, 0755); err != nil {
+		return err
 	}
 
 	/*
@@ -141,15 +150,19 @@ func runMain() error {
 			ts := time.Now()
 			activeState := strings.Trim(update.Changed["ActiveState"].String(), "\"")
 			unitName := strings.TrimSuffix(update.UnitName, ".service")
+
 			// Only process states we are interested in
 			if !isInterestingState(activeState) {
 				break
 			}
+
+			// Don't report too often
 			if t, ok := lastUnitReportTimes[unitName]; ok && time.Since(t) < minTimeBetweenReports {
 				log.Info("Reporting too often for ", unitName)
 				break
 			}
 
+			// Get the logs and check if it was a service failing.
 			rawLogs, failed, err := getLogs(unitName, numLogLines)
 			if err != nil {
 				return err
@@ -158,11 +171,21 @@ func runMain() error {
 				break // Can just be a service activating
 			}
 
+			// Log the failure
 			log.Printf("Service failed. unitName: %s, activeState: %s", unitName, activeState)
 			for _, l := range rawLogs {
 				log.Debug(l)
 			}
 
+			// Write timestamp to file of the failure of the service.
+			// This can be used by the failing service itself to increase logging if it failed recently.
+			dateTime := ts.Format(time.DateTime)
+			err = os.WriteFile(filepath.Join(serviceFailDir, unitName), []byte(dateTime), 0644)
+			if err != nil {
+				return fmt.Errorf("failed to write timestamp for %s: %v", unitName, err)
+			}
+
+			// Try to work out the package version.
 			version := "unknown"
 			packageName, ok := serviceToPackageMap[unitName]
 			if ok {
@@ -181,6 +204,7 @@ func runMain() error {
 				break
 			}
 
+			// Make an event for the service error.
 			event := eventclient.Event{
 				Timestamp: ts,
 				Type:      "systemError",
@@ -195,6 +219,8 @@ func runMain() error {
 			if err := eventclient.AddEvent(event); err != nil {
 				return err
 			}
+
+			// Note the last time we reported, this is to reduce spamming events if the service keeps failing.
 			lastUnitReportTimes[unitName] = time.Now()
 
 		case err := <-errCh:
