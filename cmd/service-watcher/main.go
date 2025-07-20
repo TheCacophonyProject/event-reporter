@@ -22,7 +22,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -36,6 +38,7 @@ import (
 const (
 	minTimeBetweenReports = 20 * time.Minute //TODO add into cacophony-config
 	numLogLines           = 20               //TODO add into cacophony-config
+	serviceFailDir        = "/var/lib/cacophony/service-fail"
 )
 
 var log = logging.NewLogger("info")
@@ -104,6 +107,11 @@ func runMain() error {
 		}
 	}
 
+	// Make the directory for keeping track of the most recent time a service failed.
+	if err := os.MkdirAll(serviceFailDir, 0755); err != nil {
+		return err
+	}
+
 	/*
 		// Test code for checking that all the versions can be found
 		for service, pkg := range serviceToPackageMap {
@@ -156,6 +164,13 @@ func runMain() error {
 			}
 			if !failed {
 				break // Can just be a service activating
+			}
+
+			// Write timestamp to file
+			dateTime := ts.Format(time.DateTime)
+			err = os.WriteFile(filepath.Join(serviceFailDir, unitName), []byte(dateTime), 0644)
+			if err != nil {
+				return fmt.Errorf("failed to write timestamp for %s: %v", unitName, err)
 			}
 
 			log.Printf("Service failed. unitName: %s, activeState: %s", unitName, activeState)
