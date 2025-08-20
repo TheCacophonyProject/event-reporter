@@ -16,12 +16,14 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package main
+package servicewatcher
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -41,18 +43,12 @@ const (
 var log = logging.NewLogger("info")
 var version = "<not set>"
 
-type argSpec struct {
+type Args struct {
 	logging.LogArgs
 }
 
-func (argSpec) Version() string {
+func (Args) Version() string {
 	return version
-}
-
-func procArgs() argSpec {
-	args := argSpec{}
-	arg.MustParse(&args)
-	return args
 }
 
 type LogReport struct {
@@ -83,19 +79,36 @@ var packageToServiceMap = map[string][]string{
 	"tc2-hat-controller":   {"tc2-hat-comms", "tc2-hat-i2c", "tc2-hat-rtc", "tc2-hat-temp", "tc2-hat-attiny", "rpi-reboot"},
 }
 
-func main() {
-	err := runMain()
+var defaultArgs = Args{}
+
+func procArgs(input []string) (Args, error) {
+	args := defaultArgs
+
+	parser, err := arg.NewParser(arg.Config{}, &args)
 	if err != nil {
-		log.Fatal(err.Error())
+		return Args{}, err
 	}
+	err = parser.Parse(input)
+	if errors.Is(err, arg.ErrHelp) {
+		parser.WriteHelp(os.Stdout)
+		os.Exit(0)
+	}
+	if errors.Is(err, arg.ErrVersion) {
+		fmt.Println(version)
+		os.Exit(0)
+	}
+	return args, err
 }
 
-func runMain() error {
-	args := procArgs()
-
+func Run(inputArgs []string, ver string) error {
+	version = ver
+	args, err := procArgs(inputArgs)
+	if err != nil {
+		return fmt.Errorf("failed to parse args: %v", err)
+	}
 	log = logging.NewLogger(args.LogLevel)
 
-	log.Info("Running version: ", version)
+	log.Infof("Running version: %s", version)
 
 	serviceToPackageMap := map[string]string{}
 	for pkg, services := range packageToServiceMap {

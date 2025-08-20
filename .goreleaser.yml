@@ -10,37 +10,12 @@ release:
   name_template: '{{.Tag}}'
 
 builds:
-- id: event-reporter
-  binary: event-reporter
-  main: ./cmd/event-reporter
+- id: event-reporter-tools
+  binary: event-reporter-tools
+  main: ./cmd/event-reporter-tools
   goos:
     - linux
   goarch:
-    - arm
-    - arm64
-  goarm:
-    - "7"
-  ldflags: -s -w -X main.version={{.Version}}
-
-- id: service-watcher
-  binary: service-watcher
-  main: ./cmd/service-watcher
-  goos:
-    - linux
-  goarch:
-    - arm
-    - arm64
-  goarm:
-    - "7"
-  ldflags: -s -w -X main.version={{.Version}}
-
-- id: version-reporter
-  binary: version-reporter
-  main: ./cmd/version-reporter
-  goos:
-    - linux
-  goarch:
-    - arm
     - arm64
   goarm:
     - "7"
@@ -73,6 +48,12 @@ nfpms:
       dst: /usr/bin/save-powered-off-time
     - src: _release/org.cacophony.Events.conf
       dst: /etc/dbus-1/system.d/org.cacophony.Events.conf
+    - src: _release/service-watcher
+      dst: /usr/bin/service-watcher
+    - src: _release/event-reporter
+      dst: /usr/bin/event-reporter
+    - src: _release/version-reporter
+      dst: /usr/bin/version-reporter
   scripts:
     postinstall: "_release/postinstall.sh"
 
