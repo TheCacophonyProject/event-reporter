@@ -6,13 +6,14 @@ import (
 
 	eventreporter "github.com/TheCacophonyProject/event-reporter/v3/internal/event-reporter"
 	servicewatcher "github.com/TheCacophonyProject/event-reporter/v3/internal/service-watcher"
-	versionreporter "github.com/TheCacophonyProject/event-reporter/v3/internal/version-reporter"
+	versionreporter "github.com/TheCacophonyProject/event-reporter/v3/version-reporter"
 	"github.com/TheCacophonyProject/go-utils/logging"
 )
 
 var log *logging.Logger
 
 func main() {
+
 	err := runMain()
 	if err != nil {
 		log.Fatal(err)

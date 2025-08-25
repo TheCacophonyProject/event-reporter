@@ -74,7 +74,7 @@ func Run(inputArgs []string, ver string) error {
 
 	log.Infof("Running version: %s", version)
 
-	packageMpedData, err := getInstalledPackages()
+	packageMpedData, err := GetInstalledPackages()
 	if err != nil {
 		return err
 	}
@@ -106,7 +106,7 @@ func Run(inputArgs []string, ver string) error {
 }
 
 // Return info on the packages that are currently installed on the device.
-func getInstalledPackages() (map[string]interface{}, error) {
+func GetInstalledPackages() (map[string]interface{}, error) {
 
 	if runtime.GOOS == "windows" {
 		return nil, nil
