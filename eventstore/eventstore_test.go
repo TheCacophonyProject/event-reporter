@@ -25,7 +25,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/boltdb/bolt"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -59,75 +58,6 @@ func (s *Suite) TearDownTest() {
 		os.RemoveAll(s.tempDir)
 		s.tempDir = ""
 	}
-}
-
-// TestMigrate will add data to the old bucket using the old method then try to
-// migrate the data to the new bucket. Will compare results.
-func (s *Suite) TestMigrate() {
-	err := s.store.db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists(oldBucketName)
-		return err
-	})
-	s.NoError(err)
-
-	t := Now()
-	e := map[int64]map[string]interface{}{
-		t.Unix(): {
-			"details": map[string]interface{}{
-				"fileId": "cat1",
-				"volume": "1",
-			},
-			"type": "audiobait1",
-		},
-		t.Add(time.Second).Unix(): {
-			"details": map[string]interface{}{
-				"fileId": "bird2",
-				"volume": "2",
-			},
-			"type": "audiobait2",
-		},
-		t.Add(time.Second).Unix(): {
-			"type": "audiobait2",
-		},
-	}
-	log.Printf("events to migrate %+v", e)
-	// Adding some event using the old method
-	for t, i := range e {
-		eventDetails := map[string]interface{}{
-			"description": map[string]interface{}{
-				"type":    i["type"],
-				"details": i["details"],
-			},
-		}
-		detailsJSON1, err := json.Marshal(&eventDetails)
-		s.NoError(err)
-		s.NoError(s.store.Queue(detailsJSON1, time.Unix(t, 0)))
-	}
-
-	// Close and reopen store, the migration happens when the store is opened so
-	// that is why it is closed and opened again
-	s.store.Close()
-	store2 := s.openStore()
-	keys, err := store2.GetKeys()
-	s.NoError(err)
-	// Check that each event did a proper migration
-	for _, key := range keys {
-		detailsBytes, err := store2.Get(key)
-		s.NoError(err)
-		event := &Event{}
-		s.NoError(json.Unmarshal(detailsBytes, event))
-		i := e[event.Timestamp.Unix()]
-		log.Printf("event time %d", event.Timestamp.Unix())
-		s.Equal(i["type"], event.Description.Type) // Checking that type was properly migrated
-		if _, ok := i["details"]; ok {             // Only compare details if origional data had details
-			s.Equal(i["details"], event.Description.Details) // Checking that details was properly migrated
-		}
-	}
-
-	// Check that migrated events are deleted
-	eventTimes, err := store2.All() // Old way of getting events
-	s.NoError(err)
-	s.Equal(len(eventTimes), 0)
 }
 
 func (s *Suite) TestAddAndGet() {

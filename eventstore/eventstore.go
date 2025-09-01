@@ -22,7 +22,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -65,105 +64,7 @@ func Open(fileName string) (*EventStore, error) {
 		return nil, fmt.Errorf("creating bucket: %v", err)
 	}
 
-	store := &EventStore{db: db}
-	if err := migrate(store); err != nil {
-		return nil, err
-	}
-	return store, nil
-}
-
-func migrate(store *EventStore) error {
-	log.Println("getting events to migrate from old bucket")
-	eventsToMigrate, oldEventTimes, err := getEventsToMigate(store.db)
-	if err != nil {
-		return err
-	}
-	if len(eventsToMigrate) == 0 {
-		log.Println("no events to migrate")
-		return nil
-	}
-	log.Printf("got %d events to migrate from old bucket\n", len(eventsToMigrate))
-	for _, event := range eventsToMigrate {
-		// Adding/Migrating to new bucket
-		if err := store.Add(&event); err != nil {
-			return err
-		}
-	}
-	log.Println("migrated all old events")
-
-	// Delete events from old bucket after migrate
-	return store.db.Update(func(tx *bolt.Tx) error {
-		oldBucket := tx.Bucket(oldBucketName)
-		if oldBucket == nil {
-			return nil
-		}
-		for _, oldEventTime := range oldEventTimes {
-			log.Printf("deleting %v", oldEventTime.Details)
-			if err := oldBucket.Delete(oldEventTime.Details); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-}
-
-func getEventsToMigate(db *bolt.DB) ([]Event, []EventTimes, error) {
-	events := []Event{}
-	oldEventTimes := []EventTimes{}
-	err := db.Update(func(tx *bolt.Tx) error {
-		oldBucket := tx.Bucket(oldBucketName)
-		if oldBucket == nil {
-			return nil // No migration needed if there is no old bucket
-		}
-		oldData := map[string][]byte{}
-		err := oldBucket.ForEach(func(k, v []byte) error {
-			// Make a copy of the keys and value from the boltdb bucket to prevent 'unexpected fault address' errors.
-			details := append([]byte(nil), k...)
-			oldEventTimes = append(oldEventTimes, EventTimes{Details: details})
-			oldData[string(details)] = append([]byte(nil), v...)
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-		// Struct for reading old format
-		type OldEventStruct struct {
-			Description map[string]interface{}
-		}
-		for oldData, oldTimes := range oldData {
-			event := &OldEventStruct{}
-			if err := json.Unmarshal([]byte(oldData), &event); err != nil {
-				return err
-			}
-
-			eventDetails, _ := event.Description["details"].(map[string]interface{})
-			eventType, ok := event.Description["type"].(string)
-			if !ok {
-				return errors.New("failed to parse old events")
-			}
-			if len(oldTimes)%8 != 1 {
-				return fmt.Errorf("%v is an invalid length for the old time format", len(oldTimes))
-			}
-			times := []time.Time{}
-			for i := 0; i < len(oldTimes)/8; i++ {
-				var nsec int64
-				b := oldTimes[1+i*8 : 1+(i+1)*8] // First byte is a version number and every 8 after that are a uint64
-				binary.Read(bytes.NewBuffer(b), binary.LittleEndian, &nsec)
-				times = append(times, time.Unix(0, nsec))
-			}
-
-			// Add event for every time the old event happened
-			for _, t := range times {
-				e := Event{
-					Description: EventDescription{Type: eventType, Details: eventDetails},
-					Timestamp:   t,
-				}
-				events = append(events, e)
-			}
-		}
-		return nil
-	})
-	return events, oldEventTimes, err
+	return &EventStore{db: db}, nil
 }
 
 // Use Add for adding new events now. This is keept for testing migrations
