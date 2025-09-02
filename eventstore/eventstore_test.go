@@ -44,7 +44,7 @@ func (s *Suite) SetupTest() {
 }
 
 func (s *Suite) openStore() *EventStore {
-	store, err := Open(filepath.Join(s.tempDir, "store.db"))
+	store, err := Open(filepath.Join(s.tempDir, "store.db"), "info")
 	s.Require().NoError(err)
 	return store
 }

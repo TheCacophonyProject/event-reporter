@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/TheCacophonyProject/go-utils/logging"
+	"github.com/TheCacophonyProject/go-utils/saltutil"
 	"github.com/boltdb/bolt"
 )
 
@@ -54,7 +55,8 @@ type rateLimit struct {
 
 // Open opens the event store. It should be closed later with the
 // Close() method.
-func Open(fileName string) (*EventStore, error) {
+func Open(fileName, logLevel string) (*EventStore, error) {
+	log = logging.NewLogger(logLevel)
 	db, err := bolt.Open(fileName, 0600, &bolt.Options{Timeout: openTimeout})
 	if err != nil {
 		return nil, err
@@ -117,7 +119,8 @@ type EventDescription struct {
 // shouldBeRateLimited checks if that type of event is being made too often.
 // Each time an event is made, if an event of that same type was made in the last 3 minutes
 // a counter will be incremented. Otherwise the counter will be reset to 0.
-// Once the counter reaches 5 the events will be rate limited and the rate limit will be reported.
+// If the counter is 5 or more the events will be rate limited.
+// When the counter reaches 5, an rate_limit event will be made
 func (s *EventStore) shouldBeRateLimited(event *Event) bool {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -149,11 +152,18 @@ func (s *EventStore) shouldBeRateLimited(event *Event) bool {
 	// When counter reaches 5 make an event showing that it is getting rate limited,
 	// Only when counter == 5, don't want to rate limit the rate limit events..
 	if counter == 5 {
-		err := s.add(&Event{
+		details := map[string]interface{}{"rate_limited_event": eventType, "severity": "error"}
+		environment, err := saltutil.GetNodegroupFromFile()
+		if err != nil {
+			log.Errorf("failed to read nodegroup file: %v", err)
+		} else {
+			details["env"] = environment
+		}
+		err = s.add(&Event{
 			Timestamp: time.Now(),
 			Description: EventDescription{
-				Type:    "rate_limit",
-				Details: map[string]interface{}{"event_type": eventType},
+				Type:    "rateLimit",
+				Details: details,
 			}})
 		if err != nil {
 			log.Errorf("failed to add rate limit event: %v", err)
