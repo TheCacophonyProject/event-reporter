@@ -115,6 +115,157 @@ func (s *Suite) TestAddAndGet() {
 	log.Println(events)
 }
 
+func (s *Suite) TestRateLimit() {
+	// Events are close to each other so should be rate limited.
+	times := []time.Time{
+		Now(),
+		Now().Add(time.Second),
+		Now().Add(2 * time.Second),
+		Now().Add(3 * time.Second),
+		Now().Add(4 * time.Second),
+		Now().Add(6 * time.Second),
+		Now().Add(7 * time.Second),
+	}
+
+	description := EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "rate_limit_check"}
+
+	for _, t := range times {
+		event := Event{
+			Timestamp:   t,
+			Description: description,
+		}
+		s.NoError(s.store.Add(&event))
+	}
+
+	// Test GetKeys
+	keys, err := s.store.GetKeys()
+	s.NoError(err, "error returned when getting all keys")
+	// Check 5 events + 1 rate limit event
+	s.Equal(5+1, len(keys), "error with number of keys returned")
+
+	// Check that there was a rate limit event
+	rateLimitEvent := false
+	for _, key := range keys {
+		eventBytes, err := s.store.Get(key)
+		s.NoError(err)
+		event := &Event{}
+		s.NoError(json.Unmarshal(eventBytes, event))
+		if event.Description.Type == "rate_limit" {
+			rateLimitEvent = true
+		}
+	}
+	if !rateLimitEvent {
+		s.Fail("Rate limit event not found")
+	}
+}
+
+func (s *Suite) TestNoRateLimit() {
+	// Events are far apart from each other so shouldn't be rate limited.
+	times := []time.Time{
+		Now(),
+		Now().Add(time.Hour),
+		Now().Add(2 * time.Hour),
+		Now().Add(3 * time.Hour),
+		Now().Add(4 * time.Hour),
+		Now().Add(6 * time.Hour),
+		Now().Add(7 * time.Hour),
+	}
+
+	description := EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "rate_limit_check"}
+
+	for _, t := range times {
+		event := Event{
+			Timestamp:   t,
+			Description: description,
+		}
+		s.NoError(s.store.Add(&event))
+	}
+
+	// Test GetKeys
+	keys, err := s.store.GetKeys()
+	s.NoError(err, "error returned when getting all keys")
+	// Check 5 events + 1 rate limit event
+	s.Equal(7, len(keys), "error with number of keys returned")
+
+	// Check that there was a rate limit event
+	rateLimitEvent := false
+	for _, key := range keys {
+		eventBytes, err := s.store.Get(key)
+		s.NoError(err)
+		event := &Event{}
+		s.NoError(json.Unmarshal(eventBytes, event))
+		if event.Description.Type == "rate_limit" {
+			rateLimitEvent = true
+		}
+	}
+	if rateLimitEvent {
+		s.Fail("Rate limit event found")
+	}
+}
+
+func (s *Suite) TestRateLimitThenNoRateLimit() {
+	// Event will be rate limited then not rate limited.
+
+	// Intervals between events.
+	durations := []time.Duration{
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		1 * time.Hour,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+	}
+
+	// Make event times
+	eventTime := time.Now()
+	times := []time.Time{eventTime}
+	for _, d := range durations {
+		eventTime = eventTime.Add(d)
+		times = append(times, eventTime)
+	}
+
+	// Make events
+	description := EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "rate_limit_check"}
+	for _, t := range times {
+		event := Event{
+			Timestamp:   t,
+			Description: description,
+		}
+		s.NoError(s.store.Add(&event))
+	}
+
+	// Test GetKeys
+	keys, err := s.store.GetKeys()
+	s.NoError(err, "error returned when getting all keys")
+	// Check 10 events + 1 rate limit event
+	s.Equal(11, len(keys), "error with number of keys returned")
+
+	// Check that there was a rate limit event
+	rateLimitEvent := false
+	for _, key := range keys {
+		eventBytes, err := s.store.Get(key)
+		s.NoError(err)
+		event := &Event{}
+		s.NoError(json.Unmarshal(eventBytes, event))
+		if event.Description.Type == "rate_limit" {
+			rateLimitEvent = true
+		}
+	}
+	if !rateLimitEvent {
+		s.Fail("Rate limit event not found")
+	}
+}
+
 func TestRun(t *testing.T) {
 	suite.Run(t, new(Suite))
 }
