@@ -153,7 +153,7 @@ func (s *EventStore) shouldBeRateLimited(event *Event) bool {
 	// Only when counter == 5, don't want to rate limit the rate limit events..
 	if counter == 5 {
 		details := map[string]interface{}{"rate_limited_event": eventType, "severity": "error"}
-		environment, err := saltutil.GetNodegroupFromFile()
+		environment, err := getNodegroupFunc()
 		if err != nil {
 			log.Errorf("failed to read nodegroup file: %v", err)
 		} else {
@@ -175,6 +175,8 @@ func (s *EventStore) shouldBeRateLimited(event *Event) bool {
 
 	return counter >= 5
 }
+
+var getNodegroupFunc = saltutil.GetNodegroupFromFile
 
 func (s *EventStore) Add(event *Event) error {
 	if s.shouldBeRateLimited(event) {

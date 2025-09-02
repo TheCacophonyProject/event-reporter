@@ -116,6 +116,9 @@ func (s *Suite) TestAddAndGet() {
 }
 
 func (s *Suite) TestRateLimit() {
+	getNodegroupFunc = func() (string, error) {
+		return "the_nodegroup", nil
+	}
 	// Events are close to each other so should be rate limited.
 	times := []time.Time{
 		Now(),
@@ -150,7 +153,7 @@ func (s *Suite) TestRateLimit() {
 		s.NoError(err)
 		event := &Event{}
 		s.NoError(json.Unmarshal(eventBytes, event))
-		if event.Description.Type == "rate_limit" {
+		if event.Description.Type == "rateLimit" {
 			rateLimitEvent = true
 		}
 	}
@@ -160,6 +163,9 @@ func (s *Suite) TestRateLimit() {
 }
 
 func (s *Suite) TestNoRateLimit() {
+	getNodegroupFunc = func() (string, error) {
+		return "the_nodegroup", nil
+	}
 	// Events are far apart from each other so shouldn't be rate limited.
 	times := []time.Time{
 		Now(),
@@ -194,7 +200,7 @@ func (s *Suite) TestNoRateLimit() {
 		s.NoError(err)
 		event := &Event{}
 		s.NoError(json.Unmarshal(eventBytes, event))
-		if event.Description.Type == "rate_limit" {
+		if event.Description.Type == "rateLimit" {
 			rateLimitEvent = true
 		}
 	}
@@ -204,6 +210,9 @@ func (s *Suite) TestNoRateLimit() {
 }
 
 func (s *Suite) TestRateLimitThenNoRateLimit() {
+	getNodegroupFunc = func() (string, error) {
+		return "the_nodegroup", nil
+	}
 	// Event will be rate limited then not rate limited.
 
 	// Intervals between events.
@@ -257,7 +266,7 @@ func (s *Suite) TestRateLimitThenNoRateLimit() {
 		s.NoError(err)
 		event := &Event{}
 		s.NoError(json.Unmarshal(eventBytes, event))
-		if event.Description.Type == "rate_limit" {
+		if event.Description.Type == "rateLimit" {
 			rateLimitEvent = true
 		}
 	}
