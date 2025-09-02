@@ -78,7 +78,7 @@ func (s *Suite) TestAddAndGet() {
 			Description: EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "type1"},
 		},
 	}
-	// Test addign data
+	// Test adding data
 	for _, e := range events {
 		s.NoError(s.store.Add(&e), "error with adding data")
 	}

@@ -23,6 +23,8 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math"
+	"sync"
 	"time"
 
 	"github.com/TheCacophonyProject/go-utils/logging"
@@ -40,7 +42,14 @@ var log = logging.NewLogger("info")
 // EventStore perists details for events which are to be sent to the
 // Cacophony Events API.
 type EventStore struct {
-	db *bolt.DB
+	db         *bolt.DB
+	mux        sync.Mutex
+	rateLimits map[string]rateLimit
+}
+
+type rateLimit struct {
+	time  time.Time
+	count int
 }
 
 // Open opens the event store. It should be closed later with the
@@ -64,7 +73,7 @@ func Open(fileName string) (*EventStore, error) {
 		return nil, fmt.Errorf("creating bucket: %v", err)
 	}
 
-	return &EventStore{db: db}, nil
+	return &EventStore{db: db, rateLimits: make(map[string]rateLimit)}, nil
 }
 
 // Use Add for adding new events now. This is keept for testing migrations
@@ -105,7 +114,68 @@ type EventDescription struct {
 	Details map[string]interface{} `json:"details"`
 }
 
+// shouldBeRateLimited checks if that type of event is being made too often.
+// Each time an event is made, if an event of that same type was made in the last 3 minutes
+// a counter will be incremented. Otherwise the counter will be reset to 0.
+// Once the counter reaches 5 the events will be rate limited and the rate limit will be reported.
+func (s *EventStore) shouldBeRateLimited(event *Event) bool {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	eventType := event.Description.Type
+	eventTime := event.Timestamp
+
+	rl, ok := s.rateLimits[eventType]
+
+	// Checking if the event type is in the rate limit map
+	if !ok {
+		// No rate limit for this event type, initializing rate limit then return false
+		s.rateLimits[eventType] = rateLimit{time: eventTime, count: 0}
+		return false
+	}
+
+	// Checking if the event is within 3 minutes of the last event
+	// Note that math.Abs is used here as when the RP2040 offloads events
+	// it will work if offloading newest to oldest or oldest to newest.
+	counter := rl.count
+	if math.Abs(eventTime.Sub(rl.time).Minutes()) < 3 {
+		// Event is within 3 minutes of the last event, incrementing count
+		counter++
+	} else {
+		// Event is not within 3 minutes of the last event, resetting count
+		counter = 0
+	}
+
+	// When counter reaches 5 make an event showing that it is getting rate limited,
+	// Only when counter == 5, don't want to rate limit the rate limit events..
+	if counter == 5 {
+		err := s.add(&Event{
+			Timestamp: time.Now(),
+			Description: EventDescription{
+				Type:    "rate_limit",
+				Details: map[string]interface{}{"event_type": eventType},
+			}})
+		if err != nil {
+			log.Errorf("failed to add rate limit event: %v", err)
+		}
+	}
+
+	// Updating rate limit
+	s.rateLimits[eventType] = rateLimit{time: eventTime, count: counter}
+
+	return counter >= 5
+}
+
 func (s *EventStore) Add(event *Event) error {
+	if s.shouldBeRateLimited(event) {
+		log.Warnf("Rate limited '%s' event", event.Description.Type)
+		return nil
+	}
+
+	return s.add(event)
+}
+
+func (s *EventStore) add(event *Event) error {
 	log.Printf("Adding new '%s' event\n", event.Description.Type)
 	data, err := json.Marshal(event)
 	if err != nil {
