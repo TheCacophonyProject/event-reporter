@@ -275,6 +275,64 @@ func (s *Suite) TestRateLimitThenNoRateLimit() {
 	}
 }
 
+func (s *Suite) TestRateLimitWhiteList() {
+	getNodegroupFunc = func() (string, error) {
+		return "the_nodegroup", nil
+	}
+
+	// Intervals between events.
+	durations := []time.Duration{
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+	}
+
+	// Make event times
+	eventTime := time.Now()
+	times := []time.Time{eventTime}
+	for _, d := range durations {
+		eventTime = eventTime.Add(d)
+		times = append(times, eventTime)
+	}
+
+	// Make events
+	description := EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "CorruptFile"}
+	for _, t := range times {
+		event := Event{
+			Timestamp:   t,
+			Description: description,
+		}
+		s.NoError(s.store.Add(&event))
+	}
+
+	// Test GetKeys
+	keys, err := s.store.GetKeys()
+	s.NoError(err, "error returned when getting all keys")
+	// Check 10 events + 1 rate limit event
+	s.Equal(len(durations)+1, len(keys), "error with number of keys returned")
+
+	// Check that there was a rate limit event
+	rateLimitEvent := false
+	for _, key := range keys {
+		eventBytes, err := s.store.Get(key)
+		s.NoError(err)
+		event := &Event{}
+		s.NoError(json.Unmarshal(eventBytes, event))
+		if event.Description.Type == "rateLimit" {
+			rateLimitEvent = true
+		}
+	}
+	if rateLimitEvent {
+		s.Fail("Rate limit event found")
+	}
+}
+
 func TestRun(t *testing.T) {
 	suite.Run(t, new(Suite))
 }

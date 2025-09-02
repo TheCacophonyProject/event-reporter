@@ -116,17 +116,34 @@ type EventDescription struct {
 	Details map[string]interface{} `json:"details"`
 }
 
+var whitelist = map[string]struct{}{
+	"UnrecoverableDataCorruption":    {},
+	"CorruptFile":                    {},
+	"ErasePartialOrCorruptRecording": {},
+	"OffloadedRecording":             {},
+	"SavedNewConfig":                 {},
+	"FileOffloadInterruptedByUser":   {},
+	"Rp2040GotNewConfig":             {},
+}
+
 // shouldBeRateLimited checks if that type of event is being made too often.
 // Each time an event is made, if an event of that same type was made in the last 3 minutes
 // a counter will be incremented. Otherwise the counter will be reset to 0.
 // If the counter is 5 or more the events will be rate limited.
 // When the counter reaches 5, an rate_limit event will be made
+// There is a whitelist of events that are not rate limited, these events are made when offloading
+// recordings so it is expected that there will be a lot of these events in a short amount of time.
 func (s *EventStore) shouldBeRateLimited(event *Event) bool {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
 	eventType := event.Description.Type
 	eventTime := event.Timestamp
+
+	// Checking if the event type is in the whitelist
+	if _, ok := whitelist[eventType]; ok {
+		return false
+	}
 
 	rl, ok := s.rateLimits[eventType]
 
