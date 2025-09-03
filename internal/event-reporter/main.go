@@ -46,6 +46,7 @@ const (
 	connMaxRetries        = 3
 	poweredOffTimeFile    = "/etc/cacophony/powered-off-time"
 	severityErrorTimeFile = "/etc/cacophony/severity-error-time"
+	uploadBatchSize       = 100
 )
 
 var version = "No version provided"
@@ -231,8 +232,8 @@ func sendEvents(
 	var errs []error
 	successEvents := 0
 	successGroup := 0
-	for description, groupedEvent := range groupedEvents {
-		if err := apiClient.ReportEvent([]byte(description), groupedEvent.times); err != nil {
+	for _, groupedEvent := range groupedEvents {
+		if err := apiClient.ReportEvent([]byte(groupedEvent.description), groupedEvent.times); err != nil {
 			errs = append(errs, err)
 		} else {
 			if err := store.DeleteKeys(groupedEvent.keys); err != nil {
@@ -258,12 +259,15 @@ func sendEvents(
 }
 
 type eventGroup struct {
-	times []time.Time
-	keys  []uint64
+	times       []time.Time
+	keys        []uint64
+	description string
 }
 
-func getGroupEvents(store *eventstore.EventStore, eventKeys []uint64) (map[string]eventGroup, error) {
+func getGroupEvents(store *eventstore.EventStore, eventKeys []uint64) ([]eventGroup, error) {
 	eventGroups := map[string]eventGroup{}
+
+	// First batch all events by description
 	for _, eventKey := range eventKeys {
 		eventBytes, err := store.Get(eventKey)
 		if err != nil {
@@ -286,7 +290,25 @@ func getGroupEvents(store *eventstore.EventStore, eventKeys []uint64) (map[strin
 		eventGroup.keys = append(eventGroup.keys, eventKey)
 		eventGroups[string(description)] = eventGroup
 	}
-	return eventGroups, nil
+
+	// Then make a list of grouped events. Making sure that each group has at most uploadBatchSize events
+	eventGroupsList := []eventGroup{}
+	for description, groups := range eventGroups {
+		times := groups.times
+		for i := 0; i < len(times); i += uploadBatchSize {
+			end := i + uploadBatchSize
+			if end > len(times) {
+				end = len(times)
+			}
+			eventGroupsList = append(eventGroupsList, eventGroup{
+				times:       times[i:end],
+				keys:        groups.keys[i:end],
+				description: description,
+			})
+		}
+	}
+
+	return eventGroupsList, nil
 }
 
 func last5Errs(errs []error) []error {
