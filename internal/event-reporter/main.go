@@ -143,7 +143,7 @@ func Run(inputArgs []string, ver string) error {
 
 	readSeverityErrorTimeFromFile()
 
-	store, err := eventstore.Open(args.DBPath)
+	store, err := eventstore.Open(args.DBPath, args.LogLevel)
 	if err != nil {
 		return err
 	}
@@ -216,13 +216,13 @@ func sendEvents(
 
 	apiClient, err := api.New()
 	if err != nil {
-		log.Printf("API connection failed: %v", err)
+		log.Warnf("API connection failed: %v", err)
 		return
 	}
 
 	groupedEvents, err := getGroupEvents(store, eventKeys)
 	if err != nil {
-		log.Printf("error grouping events: %v", err)
+		log.Errorf("error grouping events: %v", err)
 	}
 	log.Printf("%d event%s to send in %d group%s",
 		len(eventKeys), plural(len(eventKeys)),
@@ -236,7 +236,7 @@ func sendEvents(
 			errs = append(errs, err)
 		} else {
 			if err := store.DeleteKeys(groupedEvent.keys); err != nil {
-				log.Printf("failed to delete recordings from store: %v", err)
+				log.Errorf("failed to delete recordings from store: %v", err)
 				return
 			}
 			successEvents += len(groupedEvent.keys)
@@ -247,7 +247,7 @@ func sendEvents(
 	if len(errs) > 0 {
 		log.Printf("%d error%s occurred during reporting. Most recent:", len(errs), plural(len(errs)))
 		for _, err := range last5Errs(errs) {
-			log.Printf("  %v", err)
+			log.Errorf("%v", err)
 		}
 	}
 	if successEvents > 0 {

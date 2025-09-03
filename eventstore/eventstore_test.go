@@ -25,7 +25,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/boltdb/bolt"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -45,7 +44,7 @@ func (s *Suite) SetupTest() {
 }
 
 func (s *Suite) openStore() *EventStore {
-	store, err := Open(filepath.Join(s.tempDir, "store.db"))
+	store, err := Open(filepath.Join(s.tempDir, "store.db"), "info")
 	s.Require().NoError(err)
 	return store
 }
@@ -59,75 +58,6 @@ func (s *Suite) TearDownTest() {
 		os.RemoveAll(s.tempDir)
 		s.tempDir = ""
 	}
-}
-
-// TestMigrate will add data to the old bucket using the old method then try to
-// migrate the data to the new bucket. Will compare results.
-func (s *Suite) TestMigrate() {
-	err := s.store.db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists(oldBucketName)
-		return err
-	})
-	s.NoError(err)
-
-	t := Now()
-	e := map[int64]map[string]interface{}{
-		t.Unix(): {
-			"details": map[string]interface{}{
-				"fileId": "cat1",
-				"volume": "1",
-			},
-			"type": "audiobait1",
-		},
-		t.Add(time.Second).Unix(): {
-			"details": map[string]interface{}{
-				"fileId": "bird2",
-				"volume": "2",
-			},
-			"type": "audiobait2",
-		},
-		t.Add(time.Second).Unix(): {
-			"type": "audiobait2",
-		},
-	}
-	log.Printf("events to migrate %+v", e)
-	// Adding some event using the old method
-	for t, i := range e {
-		eventDetails := map[string]interface{}{
-			"description": map[string]interface{}{
-				"type":    i["type"],
-				"details": i["details"],
-			},
-		}
-		detailsJSON1, err := json.Marshal(&eventDetails)
-		s.NoError(err)
-		s.NoError(s.store.Queue(detailsJSON1, time.Unix(t, 0)))
-	}
-
-	// Close and reopen store, the migration happens when the store is opened so
-	// that is why it is closed and opened again
-	s.store.Close()
-	store2 := s.openStore()
-	keys, err := store2.GetKeys()
-	s.NoError(err)
-	// Check that each event did a proper migration
-	for _, key := range keys {
-		detailsBytes, err := store2.Get(key)
-		s.NoError(err)
-		event := &Event{}
-		s.NoError(json.Unmarshal(detailsBytes, event))
-		i := e[event.Timestamp.Unix()]
-		log.Printf("event time %d", event.Timestamp.Unix())
-		s.Equal(i["type"], event.Description.Type) // Checking that type was properly migrated
-		if _, ok := i["details"]; ok {             // Only compare details if origional data had details
-			s.Equal(i["details"], event.Description.Details) // Checking that details was properly migrated
-		}
-	}
-
-	// Check that migrated events are deleted
-	eventTimes, err := store2.All() // Old way of getting events
-	s.NoError(err)
-	s.Equal(len(eventTimes), 0)
 }
 
 func (s *Suite) TestAddAndGet() {
@@ -148,7 +78,7 @@ func (s *Suite) TestAddAndGet() {
 			Description: EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "type1"},
 		},
 	}
-	// Test addign data
+	// Test adding data
 	for _, e := range events {
 		s.NoError(s.store.Add(&e), "error with adding data")
 	}
@@ -183,6 +113,224 @@ func (s *Suite) TestAddAndGet() {
 	// There should be no data missed
 	s.Equal(0, len(events))
 	log.Println(events)
+}
+
+func (s *Suite) TestRateLimit() {
+	getNodegroupFunc = func() (string, error) {
+		return "the_nodegroup", nil
+	}
+	// Events are close to each other so should be rate limited.
+	times := []time.Time{
+		Now(),
+		Now().Add(time.Second),
+		Now().Add(2 * time.Second),
+		Now().Add(3 * time.Second),
+		Now().Add(4 * time.Second),
+		Now().Add(6 * time.Second),
+		Now().Add(7 * time.Second),
+	}
+
+	description := EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "rate_limit_check"}
+
+	for _, t := range times {
+		event := Event{
+			Timestamp:   t,
+			Description: description,
+		}
+		s.NoError(s.store.Add(&event))
+	}
+
+	// Test GetKeys
+	keys, err := s.store.GetKeys()
+	s.NoError(err, "error returned when getting all keys")
+	// Check 5 events + 1 rate limit event
+	s.Equal(5+1, len(keys), "error with number of keys returned")
+
+	// Check that there was a rate limit event
+	rateLimitEvent := false
+	for _, key := range keys {
+		eventBytes, err := s.store.Get(key)
+		s.NoError(err)
+		event := &Event{}
+		s.NoError(json.Unmarshal(eventBytes, event))
+		if event.Description.Type == "rateLimit" {
+			rateLimitEvent = true
+		}
+	}
+	if !rateLimitEvent {
+		s.Fail("Rate limit event not found")
+	}
+}
+
+func (s *Suite) TestNoRateLimit() {
+	getNodegroupFunc = func() (string, error) {
+		return "the_nodegroup", nil
+	}
+	// Events are far apart from each other so shouldn't be rate limited.
+	times := []time.Time{
+		Now(),
+		Now().Add(time.Hour),
+		Now().Add(2 * time.Hour),
+		Now().Add(3 * time.Hour),
+		Now().Add(4 * time.Hour),
+		Now().Add(6 * time.Hour),
+		Now().Add(7 * time.Hour),
+	}
+
+	description := EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "rate_limit_check"}
+
+	for _, t := range times {
+		event := Event{
+			Timestamp:   t,
+			Description: description,
+		}
+		s.NoError(s.store.Add(&event))
+	}
+
+	// Test GetKeys
+	keys, err := s.store.GetKeys()
+	s.NoError(err, "error returned when getting all keys")
+	// Check 5 events + 1 rate limit event
+	s.Equal(7, len(keys), "error with number of keys returned")
+
+	// Check that there was a rate limit event
+	rateLimitEvent := false
+	for _, key := range keys {
+		eventBytes, err := s.store.Get(key)
+		s.NoError(err)
+		event := &Event{}
+		s.NoError(json.Unmarshal(eventBytes, event))
+		if event.Description.Type == "rateLimit" {
+			rateLimitEvent = true
+		}
+	}
+	if rateLimitEvent {
+		s.Fail("Rate limit event found")
+	}
+}
+
+func (s *Suite) TestRateLimitThenNoRateLimit() {
+	getNodegroupFunc = func() (string, error) {
+		return "the_nodegroup", nil
+	}
+	// Event will be rate limited then not rate limited.
+
+	// Intervals between events.
+	durations := []time.Duration{
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		1 * time.Hour,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+	}
+
+	// Make event times
+	eventTime := time.Now()
+	times := []time.Time{eventTime}
+	for _, d := range durations {
+		eventTime = eventTime.Add(d)
+		times = append(times, eventTime)
+	}
+
+	// Make events
+	description := EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "rate_limit_check"}
+	for _, t := range times {
+		event := Event{
+			Timestamp:   t,
+			Description: description,
+		}
+		s.NoError(s.store.Add(&event))
+	}
+
+	// Test GetKeys
+	keys, err := s.store.GetKeys()
+	s.NoError(err, "error returned when getting all keys")
+	// Check 10 events + 1 rate limit event
+	s.Equal(11, len(keys), "error with number of keys returned")
+
+	// Check that there was a rate limit event
+	rateLimitEvent := false
+	for _, key := range keys {
+		eventBytes, err := s.store.Get(key)
+		s.NoError(err)
+		event := &Event{}
+		s.NoError(json.Unmarshal(eventBytes, event))
+		if event.Description.Type == "rateLimit" {
+			rateLimitEvent = true
+		}
+	}
+	if !rateLimitEvent {
+		s.Fail("Rate limit event not found")
+	}
+}
+
+func (s *Suite) TestRateLimitWhiteList() {
+	getNodegroupFunc = func() (string, error) {
+		return "the_nodegroup", nil
+	}
+
+	// Intervals between events.
+	durations := []time.Duration{
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+		time.Minute,
+	}
+
+	// Make event times
+	eventTime := time.Now()
+	times := []time.Time{eventTime}
+	for _, d := range durations {
+		eventTime = eventTime.Add(d)
+		times = append(times, eventTime)
+	}
+
+	// Make events
+	description := EventDescription{Details: map[string]interface{}{"file": "abc"}, Type: "CorruptFile"}
+	for _, t := range times {
+		event := Event{
+			Timestamp:   t,
+			Description: description,
+		}
+		s.NoError(s.store.Add(&event))
+	}
+
+	// Test GetKeys
+	keys, err := s.store.GetKeys()
+	s.NoError(err, "error returned when getting all keys")
+	// Check 10 events + 1 rate limit event
+	s.Equal(len(durations)+1, len(keys), "error with number of keys returned")
+
+	// Check that there was a rate limit event
+	rateLimitEvent := false
+	for _, key := range keys {
+		eventBytes, err := s.store.Get(key)
+		s.NoError(err)
+		event := &Event{}
+		s.NoError(json.Unmarshal(eventBytes, event))
+		if event.Description.Type == "rateLimit" {
+			rateLimitEvent = true
+		}
+	}
+	if rateLimitEvent {
+		s.Fail("Rate limit event found")
+	}
 }
 
 func TestRun(t *testing.T) {
