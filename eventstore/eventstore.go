@@ -124,6 +124,9 @@ var whitelist = map[string]struct{}{
 	"SavedNewConfig":                 {},
 	"FileOffloadInterruptedByUser":   {},
 	"Rp2040GotNewConfig":             {},
+	"StartedRecording":               {},
+	"EndedRecording":                 {},
+	"config":                         {},
 }
 
 // shouldBeRateLimited checks if that type of event is being made too often.
