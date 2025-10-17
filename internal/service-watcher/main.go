@@ -74,7 +74,6 @@ var packageToServiceMap = map[string][]string{
 	"modemd":               {"modemd"},
 	"rpi-net-manager":      {"rpi-net-manager"},
 	"salt-updater":         {"salt-updater"},
-	"trap-controller":      {"trap-controller"},
 	"thermal-uploader":     {"thermal-uploader"},
 	"tc2-hat-controller":   {"tc2-hat-comms", "tc2-hat-i2c", "tc2-hat-rtc", "tc2-hat-temp", "tc2-hat-attiny", "rpi-reboot"},
 }
@@ -117,8 +116,8 @@ func Run(inputArgs []string, ver string) error {
 		}
 	}
 
-	/*
-		// Test code for checking that all the versions can be found
+	// Test code for checking that all the versions can be found
+	if args.LogLevel == "debug" {
 		for service, pkg := range serviceToPackageMap {
 			version, err := getPackageVersion(pkg)
 			if err != nil {
@@ -127,7 +126,7 @@ func Run(inputArgs []string, ver string) error {
 				log.Printf("Service %s is version %s", service, version)
 			}
 		}
-	*/
+	}
 
 	conn, err := systemdbus.NewWithContext(context.Background())
 	if err != nil {

@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,7 +31,6 @@ import (
 	"github.com/TheCacophonyProject/event-reporter/v3/eventclient"
 	"github.com/TheCacophonyProject/event-reporter/v3/eventstore"
 	"github.com/TheCacophonyProject/go-utils/logging"
-	"github.com/TheCacophonyProject/go-utils/saltutil"
 	"github.com/TheCacophonyProject/modemd/connrequester"
 	"github.com/TheCacophonyProject/modemd/modemlistener"
 	arg "github.com/alexflint/go-arg"
@@ -346,49 +344,57 @@ func makePowerOffEvent() {
 func uploadDevicesLogs() {
 	errTime := getSeverityErrorTime()
 	if !errTime.IsZero() {
-		log.Info("Uploading device logs")
-
-		logSince := errTime.Add(-time.Hour * 12) // Get logs from 12 hours before the first error
-		oneMonth := 31 * 24 * time.Hour
-		if time.Since(logSince) > oneMonth {
-			log.Info("Limiting logs to one month.")
-			logSince = time.Now().Add(-oneMonth)
-		}
-
-		log.Infof("Uploading device logs since %s", logSince.Format(time.DateTime))
-
-		journalctlCmd := exec.Command("journalctl", "--since", logSince.Format(time.DateTime))
-
-		logFileName := "/tmp/journalctl-logs-severity-error.log"
-		logFile, err := os.Create(logFileName)
-		if err != nil {
-			log.Printf("Failed to create log file: %v", err)
-
-			return
-		}
-		defer logFile.Close()
-
-		journalctlCmd.Stdout = logFile
-
-		if err := journalctlCmd.Run(); err != nil {
-			log.Printf("Failed to run journalctl command: %v", err)
-			return
-		}
-
-		if err := exec.Command("gzip", "-f", logFileName).Run(); err != nil {
-			log.Printf("Failed to compress log file: %v", err)
-			return
-		}
-
-		if !saltutil.IsSaltIdSet() {
-			log.Error("Salt is not yet ready to upload logs")
-			return
-		}
-		if err := exec.Command("salt-call", "cp.push", logFileName+".gz").Run(); err != nil {
-			log.Printf("Error pushing log file with salt: %v", err)
-			return
-		}
-		log.Info("Device logs uploaded")
+		// TODO: Enable this once we can upload the logs to the API. Uploading logs via salt is very slow and
+		// was causing some ram issues when we were running updates, uploading logs, has the classifier and such running.
+		// Once we can upload to the API we don't need to use salt so the overhead of uploading logs is much much lower.
+		log.Warn("Device logs should be uploaded but we are disabling this functionality for now.")
 		clearSeverityErrorTime()
+		return
+		/*
+			log.Info("Uploading device logs")
+
+			logSince := errTime.Add(-time.Hour * 12) // Get logs from 12 hours before the first error
+			oneMonth := 31 * 24 * time.Hour
+			if time.Since(logSince) > oneMonth {
+				log.Info("Limiting logs to one month.")
+				logSince = time.Now().Add(-oneMonth)
+			}
+
+			log.Infof("Uploading device logs since %s", logSince.Format(time.DateTime))
+
+			journalctlCmd := exec.Command("journalctl", "--since", logSince.Format(time.DateTime))
+
+			logFileName := "/tmp/journalctl-logs-severity-error.log"
+			logFile, err := os.Create(logFileName)
+			if err != nil {
+				log.Printf("Failed to create log file: %v", err)
+
+				return
+			}
+			defer logFile.Close()
+
+			journalctlCmd.Stdout = logFile
+
+			if err := journalctlCmd.Run(); err != nil {
+				log.Printf("Failed to run journalctl command: %v", err)
+				return
+			}
+
+			if err := exec.Command("gzip", "-f", logFileName).Run(); err != nil {
+				log.Printf("Failed to compress log file: %v", err)
+				return
+			}
+
+			if !saltutil.IsSaltIdSet() {
+				log.Error("Salt is not yet ready to upload logs")
+				return
+			}
+			if err := exec.Command("salt-call", "cp.push", logFileName+".gz").Run(); err != nil {
+				log.Printf("Error pushing log file with salt: %v", err)
+				return
+			}
+			log.Info("Device logs uploaded")
+			clearSeverityErrorTime()
+		*/
 	}
 }
