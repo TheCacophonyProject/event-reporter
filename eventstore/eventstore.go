@@ -127,6 +127,7 @@ var whitelist = map[string]struct{}{
 	"StartedRecording":               {},
 	"EndedRecording":                 {},
 	"config":                         {},
+	"tracking":                       {},
 }
 
 // shouldBeRateLimited checks if that type of event is being made too often.
