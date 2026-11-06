@@ -45,7 +45,11 @@ const (
 	poweredOffTimeFile    = "/etc/cacophony/powered-off-time"
 	severityErrorTimeFile = "/etc/cacophony/severity-error-time"
 	uploadBatchSize       = 100
+	newEventDelay         = 10 * time.Second // Wait after a new event so a burst of events is sent together.
 )
+
+// Replaced in tests.
+var checkConnection = connrequester.CheckConnection
 
 var version = "No version provided"
 var log *logging.Logger
@@ -98,7 +102,7 @@ func clearSeverityErrorTime() {
 
 type Args struct {
 	DBPath   string        `arg:"-d,--db" help:"path to state database"`
-	Interval time.Duration `arg:"--interval" help:"time between event reports"`
+	Interval time.Duration `arg:"--interval" help:"longest time to wait before requesting a connection to send events"`
 	logging.LogArgs
 }
 
@@ -108,7 +112,7 @@ func (Args) Version() string {
 
 var defaultArgs = Args{
 	DBPath:   "/var/lib/event-reporter.db",
-	Interval: 30 * time.Minute,
+	Interval: 12 * time.Hour,
 }
 
 func procArgs(input []string) (Args, error) {
@@ -151,8 +155,9 @@ func Run(inputArgs []string, ver string) error {
 	cr := connrequester.NewConnectionRequester()
 
 	uploadEventsChan := make(chan bool, 2)
+	newEventChan := make(chan bool, 1)
 
-	err = StartService(store, uploadEventsChan)
+	err = StartService(store, uploadEventsChan, newEventChan)
 	if err != nil {
 		return err
 	}
@@ -164,6 +169,11 @@ func Run(inputArgs []string, ver string) error {
 		log.Println("Failed to get modem connected signal listener")
 	}
 
+	// Connections are only requested at startup, when asked to upload, or when nothing has been
+	// sent for args.Interval. Otherwise events are sent when there is already a connection, so
+	// sending them doesn't keep turning the modem on.
+	schedule := newUploadSchedule(args.Interval, time.Now())
+	requestConnection := true // Send any events left from before starting.
 	for {
 		eventKeys, err := store.GetKeys()
 		if err != nil {
@@ -173,10 +183,14 @@ func Run(inputArgs []string, ver string) error {
 		sendCount := len(eventKeys)
 		if sendCount > 0 {
 			log.Printf("%d event%s to send", sendCount, plural(sendCount))
-			sendEvents(store, eventKeys, cr)
+			if sendEvents(store, eventKeys, cr, requestConnection) > 0 {
+				schedule.uploaded(time.Now())
+			}
 
 			// Check if the devices logs should be uploaded also through salt.
 			uploadDevicesLogs()
+		} else {
+			schedule.uploaded(time.Now()) // Nothing to send counts as being up to date.
 		}
 
 		// Empty modemConnectSignal channel so as to not trigger from old signals
@@ -184,9 +198,46 @@ func Run(inputArgs []string, ver string) error {
 		select {
 		case <-uploadEventsChan:
 			log.Println("events upload requested")
+			requestConnection = true
 		case <-modemConnectSignal:
 			log.Println("Modem connected.")
-		case <-time.After(args.Interval):
+			requestConnection = false
+		case <-newEventChan:
+			time.Sleep(newEventDelay)
+			drainChannel(newEventChan)
+			requestConnection = false
+		case <-time.After(schedule.wait(time.Now())):
+			log.Printf("No events sent in the last %v, requesting a connection to send them.", args.Interval)
+			requestConnection = true
+		}
+	}
+}
+
+// uploadSchedule is when to next request a connection to send events. It moves back each time
+// events are sent, so with regular connections it is never reached.
+type uploadSchedule struct {
+	interval time.Duration
+	next     time.Time
+}
+
+func newUploadSchedule(interval time.Duration, now time.Time) *uploadSchedule {
+	return &uploadSchedule{interval: interval, next: now.Add(interval)}
+}
+
+func (s *uploadSchedule) uploaded(now time.Time) {
+	s.next = now.Add(s.interval)
+}
+
+func (s *uploadSchedule) wait(now time.Time) time.Duration {
+	return max(s.next.Sub(now), 0)
+}
+
+func drainChannel(ch chan bool) {
+	for {
+		select {
+		case <-ch:
+		default:
+			return
 		}
 	}
 }
@@ -201,22 +252,30 @@ func emptyChannel(ch chan time.Time) {
 	}
 }
 
+// sendEvents returns how many events were sent. If requestConnection is false it only sends
+// them if there is already a connection, as requesting one can power on the modem.
 func sendEvents(
 	store *eventstore.EventStore,
 	eventKeys []uint64,
 	cr *connrequester.ConnectionRequester,
-) {
-	cr.Start()
-	defer cr.Stop()
-	if err := cr.WaitUntilUpLoop(connTimeout, connRetryInterval, connMaxRetries); err != nil {
-		log.Println("unable to get an internet connection. Not reporting events")
-		return
+	requestConnection bool,
+) int {
+	if requestConnection {
+		cr.Start()
+		defer cr.Stop()
+		if err := cr.WaitUntilUpLoop(connTimeout, connRetryInterval, connMaxRetries); err != nil {
+			log.Println("unable to get an internet connection. Not reporting events")
+			return 0
+		}
+	} else if !checkConnection() {
+		log.Println("No internet connection. Will send events once there is one.")
+		return 0
 	}
 
 	apiClient, err := api.New()
 	if err != nil {
 		log.Warnf("API connection failed: %v", err)
-		return
+		return 0
 	}
 
 	groupedEvents, err := getGroupEvents(store, eventKeys)
@@ -236,7 +295,7 @@ func sendEvents(
 		} else {
 			if err := store.DeleteKeys(groupedEvent.keys); err != nil {
 				log.Errorf("failed to delete recordings from store: %v", err)
-				return
+				return successEvents
 			}
 			successEvents += len(groupedEvent.keys)
 			successGroup++
@@ -254,6 +313,7 @@ func sendEvents(
 			successEvents, plural(successEvents),
 			successGroup, plural(successGroup))
 	}
+	return successEvents
 }
 
 type eventGroup struct {

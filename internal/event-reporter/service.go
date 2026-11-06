@@ -37,7 +37,7 @@ const dbusPath = "/org/cacophony/Events"
 // StartService exposes an instance of `service` (see below) on the
 // system DBUS. This allows other processes to queue events for
 // sending.
-func StartService(store *eventstore.EventStore, uploadEventsChan chan bool) error {
+func StartService(store *eventstore.EventStore, uploadEventsChan, newEventChan chan bool) error {
 	conn, err := dbus.SystemBus()
 	if err != nil {
 		return err
@@ -53,6 +53,7 @@ func StartService(store *eventstore.EventStore, uploadEventsChan chan bool) erro
 	svc := &service{
 		store:            store,
 		uploadEventsChan: uploadEventsChan,
+		newEventChan:     newEventChan,
 	}
 	conn.Export(svc, dbusPath, dbusName)
 	conn.Export(genIntrospectable(svc), dbusPath, "org.freedesktop.DBus.Introspectable")
@@ -72,6 +73,15 @@ func genIntrospectable(v interface{}) introspect.Introspectable {
 type service struct {
 	store            *eventstore.EventStore
 	uploadEventsChan chan bool
+	newEventChan     chan bool // Told about each new event, so it can be sent if there is a connection.
+}
+
+// notifyNewEvent doesn't block, as one notification is enough for any number of new events.
+func (svc *service) notifyNewEvent() {
+	select {
+	case svc.newEventChan <- true:
+	default:
+	}
 }
 
 // UploadEvents requests for events to be uploaded now.
@@ -99,6 +109,7 @@ func (svc *service) Queue(details []byte, nanos int64) *dbus.Error {
 			Body: []interface{}{err.Error()},
 		}
 	}
+	svc.notifyNewEvent()
 	return nil
 }
 
@@ -137,6 +148,7 @@ func (svc *service) Add(detailsRaw string, eventType string, unixNsec int64) *db
 	if err := svc.store.Add(event); err != nil {
 		return dbusErr(".Errors.AddFailed", err)
 	}
+	svc.notifyNewEvent()
 	return nil
 }
 
